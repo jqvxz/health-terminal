@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Lifting{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Weight Training</h2>
+    <p>Hevy-logged lifting sessions from Strava</p>
+</div>
+
+<!-- Stats Row -->
+<div class="grid grid-4 mb-24">
+    <div class="card"><div class="card-title">Total Volume</div><div class="stat-value" id="liftTotalVol">—</div><div class="stat-unit">kg all time</div></div>
+    <div class="card"><div class="card-title">Sessions</div><div class="stat-value" id="liftSessions">—</div><div class="stat-unit">logged</div></div>
+    <div class="card"><div class="card-title">Heaviest Lift</div><div class="stat-value" id="liftMax">—</div><div class="stat-unit">kg</div></div>
+    <div class="card"><div class="card-title">Avg Session Volume</div><div class="stat-value" id="liftAvgVol">—</div><div class="stat-unit">kg</div></div>
+</div>
+
+<!-- Charts -->
+<div class="grid grid-2 mb-24">
+    <div class="card">
+        <div class="card-header"><div class="card-title">Volume Over Time</div></div>
+        <div class="chart-wrap"><canvas id="volumeChart"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><div class="card-title">Muscle Groups Trained</div></div>
+        <div class="chart-wrap"><canvas id="muscleChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Weight Progression -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">Exercise Progression</div>
+        <select class="form-input" id="progressExercise" onchange="loadProgression()" style="width:200px;padding:6px 12px;font-size:0.8125rem;">
+            <option value="">Select exercise...</option>
+        </select>
+    </div>
+    <div class="chart-wrap hidden" id="progressionChartWrap"><canvas id="progressionChart"></canvas></div>
+    <div id="progressionEmpty" class="empty-state" style="padding:24px 0;"><p>Select an exercise above to see weight progression</p></div>
+</div>
+
+<!-- Sessions Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">Recent Sessions</div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Date</th><th>Session</th><th>Duration</th><th>Exercises</th><th>Volume</th><th></th></tr></thead>
+            <tbody id="liftTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="liftModal">
+    <div class="modal" style="max-width:720px;">
+        <div class="modal-header">
+            <h3 id="liftModalTitle">Session Details</h3>
+            <button class="modal-close" onclick="document.getElementById('liftModal').classList.remove('active')">×</button>
+        </div>
+        <div class="modal-body" id="liftModalBody"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', loadLifting);
+
+async function loadLifting() {
+    try {
+        const [activitiesRes, musclesRes, overviewRes] = await Promise.all([
+            fetch('/api/activities?type=lifting&limit=100'),
+            fetch('/api/stats/muscles?days=30'),
+            fetch('/api/stats/overview')
+        ]);
+        const activities = await activitiesRes.json();
+        const muscles = await musclesRes.json();
+        const overview = await overviewRes.json();
+
+        // Stats
+        animateValue(document.getElementById('liftTotalVol'), Math.round(overview.total_volume || 0));
+        animateValue(document.getElementById('liftSessions'), overview.lifting_count || 0);
+        animateDecimal(document.getElementById('liftMax'), overview.max_weight || 0);
+
+        const avgVol = overview.lifting_count > 0 ? Math.round((overview.total_volume||0)/(overview.lifting_count)) : 0;
+        animateValue(document.getElementById('liftAvgVol'), avgVol);
+
+        // Load details for each session
+        const detailedPromises = activities.map(a => fetch(`/api/activities/${a.id}`).then(r=>r.json()));
+        const detailed = await Promise.all(detailedPromises);
+
+        // Charts
+        renderVolumeOverTime(detailed);
+        renderMuscleRadar(muscles);
+
+        // Populate exercise dropdown
+        const exercises = new Set();
+        detailed.forEach(d => {
+            if (d.lifting_details) d.lifting_details.forEach(l => exercises.add(l.exercise_name));
+        });
+        const select = document.getElementById('progressExercise');
+        [...exercises].sort().forEach(ex => {
+            const opt = document.createElement('option');
+            opt.value = ex;
+            opt.textContent = ex;
+            select.appendChild(opt);
+        });
+
+        // Table
+        const tbody = document.getElementById('liftTable');
+        if (!detailed.length) {
+            tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>No lifting sessions yet. Sync Hevy activities from Strava.</p></div></td></tr>';
+            return;
+        }
+        tbody.innerHTML = detailed.map(d => {
+            const date = (d.start_date_local||'').substring(0,10);
+            const dur = d.moving_time ? Math.round(d.moving_time/60)+'min' : '—';
+            const exCount = d.lifting_details ? new Set(d.lifting_details.map(l=>l.exercise_name)).size : 0;
+            const vol = d.lifting_details ? d.lifting_details.filter(l=>!l.is_warmup).reduce((s,l)=>s+(l.weight||0)*(l.reps||0),0) : 0;
+            return `<tr onclick="showLiftDetail(${d.id})" style="cursor:pointer;">
+                <td class="td-muted">${date}</td><td>${d.name||'—'}</td><td class="data-mono">${dur}</td>
+                <td class="data-mono">${exCount}</td><td class="data-mono">${Math.round(vol).toLocaleString()}kg</td>
+                <td><span class="badge badge-accent">VIEW</span></td></tr>`;
+        }).join('');
+    } catch(e) { console.error(e); }
+}
+
+async function showLiftDetail(id) {
+    try {
+        const res = await fetch(`/api/activities/${id}`);
+        const data = await res.json();
+        document.getElementById('liftModalTitle').textContent = data.name || 'Session Details';
+        const body = document.getElementById('liftModalBody');
+        const details = data.lifting_details || [];
+        const totalVol = details.filter(d=>!d.is_warmup).reduce((s,d)=>s+(d.weight||0)*(d.reps||0),0);
+
+        // Group by exercise
+        const grouped = {};
+        details.forEach(d => {
+            if (!grouped[d.exercise_name]) grouped[d.exercise_name] = [];
+            grouped[d.exercise_name].push(d);
+        });
+
+        let html = `<div class="flex gap-16 mb-16">
+            <div><div class="label-caps">Total Volume</div><div class="data-md">${Math.round(totalVol).toLocaleString()} kg</div></div>
+            <div><div class="label-caps">Exercises</div><div class="data-md">${Object.keys(grouped).length}</div></div>
+            <div><div class="label-caps">Duration</div><div class="data-md">${data.moving_time?Math.round(data.moving_time/60)+'min':'—'}</div></div>
+            <div><div class="label-caps">Calories</div><div class="data-md">${data.calories?Math.round(data.calories)+' kcal':'—'}</div></div>
+        </div>`;
+
+        for (const [name, sets] of Object.entries(grouped)) {
+            const muscle = sets[0].muscle_group || '';
+            html += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                <div class="flex justify-between items-center mb-8">
+                    <span style="font-weight:600;">${name}</span>
+                    ${muscle ? `<span class="badge">${muscle}</span>` : ''}
+                </div>
+                <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:4px 16px;font-size:0.8125rem;">
+                    <div class="label-caps">Set</div><div class="label-caps">Weight</div><div class="label-caps">Reps</div><div class="label-caps">Vol</div>
+                    ${sets.map(s => `<div class="data-mono ${s.is_warmup?'td-muted':''}">${s.is_warmup?'W':''}${s.set_number}</div>
+                        <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.weight}${s.weight_unit||'kg'}</div>
+                        <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.reps}</div>
+                        <div class="data-mono ${s.is_warmup?'td-muted':''}">${Math.round((s.weight||0)*(s.reps||0))}kg</div>`).join('')}
+                </div>
+            </div>`;
+        }
+        body.innerHTML = html;
+        document.getElementById('liftModal').classList.add('active');
+    } catch(e) { showToast('Failed to load details', 'error'); }
+}
+
+async function loadProgression() {
+    const exercise = document.getElementById('progressExercise').value;
+    const emptyEl = document.getElementById('progressionEmpty');
+    const chartWrap = document.getElementById('progressionChartWrap');
+    if (!exercise) { destroyChart('progressionChart'); chartWrap.classList.add('hidden'); emptyEl.classList.remove('hidden'); return; }
+    emptyEl.classList.add('hidden');
+
+    try {
+        const res = await fetch(`/api/activities?type=lifting&limit=100`);
+        const activities = await res.json();
+        const points = [];
+        for (const a of activities) {
+            const dRes = await fetch(`/api/activities/${a.id}`);
+            const d = await dRes.json();
+            if (d.lifting_details) {
+                const sets = d.lifting_details.filter(l => l.exercise_name === exercise && !l.is_warmup);
+                if (sets.length) {
+                    const maxW = Math.max(...sets.map(s => s.weight || 0));
+                    points.push({ date: (d.start_date_local||'').substring(5,10), weight: maxW });
+                }
+            }
+        }
+        points.reverse();
+        destroyChart('progressionChart');
+        if (!points.length) { chartWrap.classList.add('hidden'); emptyEl.classList.remove('hidden'); return; }
+
+        chartWrap.classList.remove('hidden');
+        const ctx = document.getElementById('progressionChart');
+        chartInstances['progressionChart'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: points.map(p=>p.date),
+                datasets: [{ data: points.map(p=>p.weight), borderColor: CHART_COLORS.accent, backgroundColor:'rgba(191,255,0,0.1)', fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:CHART_COLORS.accent, borderWidth:2 }]
+            },
+            options: { ...CHART_DEFAULTS, scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, title: { display:true, text:'kg', color:CHART_COLORS.grey } } } }
+        });
+    } catch(e) { console.error(e); }
+}
+</script>
+{% endblock %}

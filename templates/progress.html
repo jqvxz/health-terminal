@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Progress{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Progress Tracking</h2>
+    <p>Weekly and monthly performance trends</p>
+</div>
+
+<!-- Period Tabs -->
+<div class="tab-group mb-24">
+    <button class="tab-btn active" onclick="loadProgress('week', this)">This Week</button>
+    <button class="tab-btn" onclick="loadProgress('month', this)">This Month</button>
+    <button class="tab-btn" onclick="loadProgress('compare', this)">Compare</button>
+</div>
+
+<!-- Stats Cards -->
+<div id="progressContent">
+    <div class="grid grid-3 mb-24">
+        <div class="card"><div class="card-title">Running Distance</div><div class="stat-value" id="pRunDist">—</div><div class="stat-unit" id="pRunDistUnit">km this period</div><div class="stat-change" id="pRunDistChange"></div></div>
+        <div class="card"><div class="card-title">Lifting Volume</div><div class="stat-value" id="pLiftVol">—</div><div class="stat-unit">kg this period</div><div class="stat-change" id="pLiftVolChange"></div></div>
+        <div class="card"><div class="card-title">Total Sessions</div><div class="stat-value" id="pSessions">—</div><div class="stat-unit">this period</div><div class="stat-change" id="pSessionsChange"></div></div>
+    </div>
+
+    <div class="grid grid-2 mb-24">
+        <div class="card">
+            <div class="card-header"><div class="card-title">Weekly Trend (Distance)</div></div>
+            <div class="chart-wrap"><canvas id="weeklyTrendChart"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><div class="card-title">Weekly Trend (Volume)</div></div>
+            <div class="chart-wrap"><canvas id="volumeTrendChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Comparison Cards -->
+    <div id="compareSection" class="hidden">
+        <h3 class="mb-16">This Week vs Last Week</h3>
+        <div class="grid grid-2 mb-24">
+            <div class="card">
+                <div class="card-title">This Week</div>
+                <div class="grid grid-2 mt-16">
+                    <div><div class="label-caps">Distance</div><div class="data-md" id="cThisDist">—</div></div>
+                    <div><div class="label-caps">Sessions</div><div class="data-md" id="cThisSess">—</div></div>
+                    <div><div class="label-caps">Calories</div><div class="data-md" id="cThisCal">—</div></div>
+                    <div><div class="label-caps">Volume</div><div class="data-md" id="cThisVol">—</div></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Last Week</div>
+                <div class="grid grid-2 mt-16">
+                    <div><div class="label-caps">Distance</div><div class="data-md" id="cLastDist">—</div></div>
+                    <div><div class="label-caps">Sessions</div><div class="data-md" id="cLastSess">—</div></div>
+                    <div><div class="label-caps">Calories</div><div class="data-md" id="cLastCal">—</div></div>
+                    <div><div class="label-caps">Volume</div><div class="data-md" id="cLastVol">—</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Muscle Heatmap -->
+    <div class="card mb-24">
+        <div class="card-header">
+            <div class="card-title">Muscle Group Heatmap (7 days)</div>
+        </div>
+        <div class="muscle-grid" id="muscleHeatmap"></div>
+    </div>
+
+    <!-- Goals Progress -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Goals Progress</div>
+            <button class="btn btn-ghost btn-sm" onclick="window.location.href='/?add_goal=true'">+ Add Goal</button>
+        </div>
+        <div id="progressGoals"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+const ALL_MUSCLES = ['Chest','Back','Shoulders','Biceps','Triceps','Quadriceps','Hamstrings','Glutes','Calves','Core','Forearms','Traps','Lats'];
+
+document.addEventListener('DOMContentLoaded', () => loadProgress('week'));
+
+async function loadProgress(period, btn) {
+    if (btn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    document.getElementById('compareSection').classList.toggle('hidden', period !== 'compare');
+
+    try {
+        if (period === 'month') {
+            const res = await fetch('/api/stats/monthly?months_back=0');
+            const stats = await res.json();
+            const prevRes = await fetch('/api/stats/monthly?months_back=1');
+            const prevStats = await prevRes.json();
+
+            const runDist = (stats.running?.total_distance || 0) / 1000;
+            const sessions = stats.total_activities || 0;
+            const liftVol = stats.total_volume || 0;
+
+            animateDecimal(document.getElementById('pRunDist'), runDist);
+            animateValue(document.getElementById('pLiftVol'), Math.round(liftVol));
+            animateValue(document.getElementById('pSessions'), sessions);
+            document.getElementById('pRunDistUnit').textContent = 'km this month';
+
+            showChange('pRunDistChange', runDist, (prevStats.running?.total_distance || 0) / 1000);
+            showChange('pLiftVolChange', liftVol, prevStats.total_volume || 0);
+            showChange('pSessionsChange', sessions, prevStats.total_activities || 0);
+        } else {
+            // Weekly + trends
+            const weekPromises = [];
+            for (let i = 0; i < 8; i++) weekPromises.push(fetch(`/api/stats/weekly?weeks_back=${i}`).then(r=>r.json()));
+            const weeks = await Promise.all(weekPromises);
+
+            const current = weeks[0];
+            const prev = weeks[1] || {};
+            const runDist = (current.running?.total_distance || 0) / 1000;
+            const runSess = (current.running?.count || 0) + (current.lifting?.count || 0);
+            const liftVol = current.total_volume || 0;
+
+            animateDecimal(document.getElementById('pRunDist'), runDist);
+            animateValue(document.getElementById('pLiftVol'), Math.round(liftVol));
+            animateValue(document.getElementById('pSessions'), runSess);
+            document.getElementById('pRunDistUnit').textContent = 'km this week';
+
+            const prevDist = (prev.running?.total_distance || 0) / 1000;
+            const prevSess = (prev.running?.count || 0) + (prev.lifting?.count || 0);
+            const prevVol = prev.total_volume || 0;
+            showChange('pRunDistChange', runDist, prevDist);
+            showChange('pLiftVolChange', liftVol, prevVol);
+            showChange('pSessionsChange', runSess, prevSess);
+
+            renderWeeklyTrends(weeks.reverse());
+
+            // Compare
+            if (period === 'compare' && weeks.length >= 2) {
+                const thisW = weeks[weeks.length-1], lastW = weeks[weeks.length-2];
+                document.getElementById('cThisDist').textContent = ((thisW.running?.total_distance||0)/1000).toFixed(1)+'km';
+                document.getElementById('cThisSess').textContent = (thisW.running?.count||0)+(thisW.lifting?.count||0);
+                document.getElementById('cThisCal').textContent = Math.round((thisW.running?.total_calories||0)+(thisW.lifting?.total_calories||0));
+                document.getElementById('cThisVol').textContent = Math.round(thisW.total_volume||0).toLocaleString()+'kg';
+                document.getElementById('cLastDist').textContent = ((lastW.running?.total_distance||0)/1000).toFixed(1)+'km';
+                document.getElementById('cLastSess').textContent = (lastW.running?.count||0)+(lastW.lifting?.count||0);
+                document.getElementById('cLastCal').textContent = Math.round((lastW.running?.total_calories||0)+(lastW.lifting?.total_calories||0));
+                document.getElementById('cLastVol').textContent = Math.round(lastW.total_volume||0).toLocaleString()+'kg';
+            }
+        }
+
+        // Muscle heatmap
+        const muscleRes = await fetch('/api/stats/muscles?days=7');
+        const muscles = await muscleRes.json();
+        renderMuscleHeatmap(muscles);
+
+        // Goals
+        const goalsRes = await fetch('/api/goals?status=active');
+        const goals = await goalsRes.json();
+        const goalsEl = document.getElementById('progressGoals');
+        if (!goals.length) { goalsEl.innerHTML = '<div class="empty-state"><p>No active goals. Set goals from the Dashboard.</p></div>'; }
+        else {
+            goalsEl.innerHTML = goals.map(g => {
+                let pct = 0;
+                let textValue = `${g.current_value} / ${g.target_value} ${g.unit}`;
+
+                if (g.target_value > 0) {
+                    if (g.metric === 'pace') {
+                        pct = g.current_value > 0 ? Math.min(100, Math.round((g.target_value / g.current_value) * 100)) : 0;
+                        textValue = `Current: ${g.current_value} ${g.unit} — Target: ${g.target_value} ${g.unit}`;
+                    } else {
+                        pct = Math.min(100, Math.round((g.current_value / g.target_value) * 100));
+                    }
+                }
+
+                return `<div style="padding:16px 0;border-bottom:1px solid var(--border);">
+                    <div class="flex justify-between items-center mb-8">
+                        <span style="font-weight:500;">${g.title}</span>
+                        <div class="flex items-center gap-16">
+                            <span class="data-mono">${pct}%</span>
+                            <button class="btn-ghost btn-sm" style="border:none;background:none;color:var(--text-muted);cursor:pointer;padding:0;" onclick="deleteGoal(${g.id})">×</button>
+                        </div>
+                    </div>
+                    <div class="progress-bar"><div class="progress-fill ${pct>=100?'accent':''}" style="width:${pct}%;"></div></div>
+                    <div class="label-caps mt-8" style="text-transform:none;">${textValue} ${g.deadline?'· Due '+g.deadline:''}</div>
+                </div>`;
+            }).join('');
+        }
+    } catch(e) { console.error(e); }
+}
+
+function showChange(elId, current, previous) {
+    const el = document.getElementById(elId);
+    if (!el || previous === 0) { el.textContent = ''; return; }
+    const pct = Math.round(((current - previous) / previous) * 100);
+    if (pct > 0) { el.className = 'stat-change positive'; el.innerHTML = `↑ ${pct}% vs last`; }
+    else if (pct < 0) { el.className = 'stat-change negative'; el.innerHTML = `↓ ${Math.abs(pct)}% vs last`; }
+    else { el.textContent = '— same as last'; el.className = 'stat-change'; }
+}
+
+function renderMuscleHeatmap(muscles) {
+    const el = document.getElementById('muscleHeatmap');
+    const muscleMap = {};
+    muscles.forEach(m => { muscleMap[m.muscle_group] = m.session_count || 0; });
+    const maxSessions = Math.max(1, ...Object.values(muscleMap));
+
+    el.innerHTML = ALL_MUSCLES.map(m => {
+        const count = muscleMap[m] || 0;
+        let heat = 0;
+        if (count > 0) heat = Math.min(4, Math.ceil((count / maxSessions) * 4));
+        return `<div class="muscle-cell heat-${heat}" title="${m}: ${count} sessions">
+            <div style="font-size:0.6875rem;margin-bottom:4px;">${m}</div>
+            <div style="font-weight:700;font-size:1rem;">${count || '—'}</div>
+        </div>`;
+    }).join('');
+}
+
+async function deleteGoal(id) {
+    if (!confirm('Delete this goal?')) return;
+    try {
+        await fetch(`/api/goals/${id}`, { method: 'DELETE' });
+        loadProgress(document.querySelector('.tab-btn.active').textContent.toLowerCase().includes('week') ? 'week' : 'month');
+    } catch(e) { console.error(e); }
+}
+</script>
+{% endblock %}

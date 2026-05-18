@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title_suffix %} — AI Insights{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>AI Insights</h2>
+    <p>Powered by Nemotron via OpenRouter — button-activated analysis</p>
+</div>
+
+<!-- Usage Meter -->
+<div class="card mb-24">
+    <div class="flex justify-between items-center">
+        <div>
+            <div class="card-title">Daily API Usage</div>
+            <div class="flex items-center gap-8 mt-8">
+                <span class="data-md" id="aiUsed">0</span>
+                <span class="text-muted">/</span>
+                <span class="data-md text-muted" id="aiLimit">50</span>
+                <span class="stat-unit">requests today</span>
+            </div>
+        </div>
+        <div style="width:200px;">
+            <div class="usage-bar"><div class="usage-fill" id="aiUsageBar" style="width:0%;"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Analysis Box -->
+<div class="ai-box mb-24">
+    <div class="ai-label">
+        <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
+        AI Recommendations
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Ask a specific question (optional)</label>
+        <textarea class="form-input" id="aiPrompt" rows="3" placeholder="e.g. How should I adjust my training volume this week? Or leave empty for a general analysis..."></textarea>
+    </div>
+
+    <div class="flex gap-8 mb-24 flex-wrap">
+        <button class="btn btn-accent" onclick="runAnalysis()" id="analyzeBtn">
+            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
+            Analyze My Data
+        </button>
+        <button class="btn btn-secondary" onclick="runAnalysis('Give me a detailed weekly training recap with metrics analysis.')">Weekly Recap</button>
+        <button class="btn btn-secondary" onclick="runAnalysis('Provide nutrition recommendations based on my recent activity and calorie expenditure.')">Nutrition Tips</button>
+        <button class="btn btn-secondary" onclick="runAnalysis('Analyze my recovery needs based on recent training volume and intensity. Am I overtraining?')">Recovery Check</button>
+        <button class="btn btn-secondary" onclick="runAnalysis('Review my lifting volume and suggest which muscle groups need more attention based on imbalances.')">Volume Balance</button>
+    </div>
+
+    <div id="aiResponseArea" class="ai-response" style="min-height:100px;color:var(--text-secondary);">
+        Press a button above to get AI-powered insights about your training data. The AI will analyze your recent activities, progress, and goals to provide personalized recommendations.
+    </div>
+</div>
+
+<!-- History -->
+<div class="card">
+    <div class="card-header"><div class="card-title">Recommendation History</div></div>
+    <div id="aiHistory"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => { loadAIUsage(); loadAIHistory(); });
+
+window.aiHistoryData = {};
+
+function copyAIText(btn, id) {
+    const text = id === 'current' ? window.currentAIResponse : window.aiHistoryData[id];
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = "Copied!";
+        setTimeout(() => btn.innerText = originalText, 2000);
+    });
+}
+
+
+
+function downloadAIMarkdown(btn, id) {
+    const text = id === 'current' ? window.currentAIResponse : window.aiHistoryData[id];
+    const blob = new Blob([text], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'HealthTerminal_AI_Insights.md';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+async function loadAIUsage() {
+    try {
+        const res = await fetch('/api/ai/usage');
+        const data = await res.json();
+        document.getElementById('aiUsed').textContent = data.used;
+        document.getElementById('aiLimit').textContent = data.limit;
+        const pct = Math.round((data.used/data.limit)*100);
+        document.getElementById('aiUsageBar').style.width = pct + '%';
+        if (pct > 80) document.getElementById('aiUsageBar').style.background = 'var(--warning)';
+        if (pct >= 100) document.getElementById('aiUsageBar').style.background = 'var(--danger)';
+    } catch(e) {}
+}
+
+async function runAnalysis(preset) {
+    const btn = document.getElementById('analyzeBtn');
+    const prompt = preset || document.getElementById('aiPrompt').value;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+    document.getElementById('aiResponseArea').innerHTML = '<div class="flex items-center gap-8"><span class="spinner"></span> Analyzing your training data with Nemotron AI...</div>';
+
+    try {
+        const res = await fetch('/api/ai/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({prompt})
+        });
+        const data = await res.json();
+        if (data.error) {
+            document.getElementById('aiResponseArea').innerHTML = `<span style="color:var(--danger);">${data.error}</span>`;
+            showToast(data.error, 'error');
+        } else {
+            const cached = data.cached ? ' <span class="badge">CACHED</span>' : '';
+            window.currentAIResponse = data.response;
+            const buttonsHtml = `
+                <div class="flex gap-8 mt-16 mb-8">
+                    <button class="btn btn-secondary" onclick="copyAIText(this, 'current')">Copy Text</button>
+                    <button class="btn btn-secondary" onclick="downloadAIMarkdown(this, 'current')">Export Markdown</button>
+                    <button class="btn btn-secondary" style="text-decoration: line-through; opacity: 0.5; cursor: not-allowed;" onclick="showToast('PDF export will be available soon')">Export PDF</button>
+                </div>
+            `;
+            document.getElementById('aiResponseArea').innerHTML = `<div class="ai-content-inner">${formatAI(data.response)}</div>${cached}${buttonsHtml}`;
+            loadAIUsage();
+            loadAIHistory();
+        }
+    } catch(e) {
+        document.getElementById('aiResponseArea').innerHTML = '<span style="color:var(--danger);">Failed to connect to AI service.</span>';
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg> Analyze My Data';
+}
+
+async function loadAIHistory() {
+    try {
+        const res = await fetch('/api/ai/history');
+        const history = await res.json();
+        const el = document.getElementById('aiHistory');
+        if (!history.length) { el.innerHTML = '<div class="empty-state"><p>No past analyses yet</p></div>'; return; }
+        el.innerHTML = history.map((h, i) => {
+            window.aiHistoryData[i] = h.response;
+            return `
+            <div style="padding:16px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="if(!event.target.closest('.btn')) this.querySelector('.ai-hist-body').classList.toggle('hidden')">
+                <div class="flex justify-between items-center">
+                    <span style="font-weight:500;">${h.prompt_summary || 'Analysis'}</span>
+                    <span class="label-caps">${timeAgo(h.created_at)}</span>
+                </div>
+                <div class="ai-hist-body hidden mt-8 ai-response" style="font-size:0.8125rem;cursor:default;">
+                    <div class="ai-content-inner">${formatAI(h.response)}</div>
+                    <div class="flex gap-8 mt-16 mb-8">
+                        <button class="btn btn-secondary" onclick="copyAIText(this, ${i})">Copy Text</button>
+                        <button class="btn btn-secondary" onclick="downloadAIMarkdown(this, ${i})">Export Markdown</button>
+                        <button class="btn btn-secondary" style="text-decoration: line-through; opacity: 0.5; cursor: not-allowed;" onclick="showToast('PDF export will be available soon')">Export PDF</button>
+                    </div>
+                </div>
+            </div>
+        `}).join('');
+    } catch(e) {}
+}
+</script>
+{% endblock %}

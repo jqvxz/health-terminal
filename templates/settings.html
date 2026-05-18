@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Settings</h2>
+    <p>Configure your HealthTerminal experience</p>
+</div>
+
+<!-- Strava Connection -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">Strava Connection</div>
+    </div>
+    <div class="flex justify-between items-center">
+        <div>
+            {% if settings.get('strava_connected') == '1' %}
+            <div class="flex items-center gap-8">
+                <span class="status-dot online"></span>
+                <div>
+                    <div style="font-weight:600;">Connected</div>
+                    <div class="label-caps">{{ settings.get('strava_athlete_name', 'Athlete') }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="flex items-center gap-8">
+                <span class="status-dot offline"></span>
+                <div>
+                    <div style="font-weight:500;">Not Connected</div>
+                    <div class="label-caps">Connect to sync your activities</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% if settings.get('strava_connected') == '1' %}
+        <a href="/auth/strava/disconnect" class="btn btn-secondary btn-sm">Disconnect</a>
+        {% else %}
+        <a href="/auth/strava" class="btn btn-accent btn-sm">Connect Strava</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- OpenRouter API -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">OpenRouter API (AI)</div>
+    </div>
+    <div class="form-group">
+        <label class="form-label">API Key</label>
+        <input type="password" class="form-input" id="apiKeyInput" value="{{ settings.get('openrouter_api_key', '') }}"
+            placeholder="sk-or-v1-...">
+    </div>
+    <div class="flex gap-8 items-center">
+        <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Save Key</button>
+        <button class="btn btn-secondary btn-sm" onclick="validateKey()">Test Connection</button>
+        <span id="apiStatus" class="label-caps"></span>
+    </div>
+    <div class="label-caps mt-16">Model: Nemotron Super (Free) · 50 requests/day</div>
+</div>
+
+<!-- User Data -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">User Data</div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; flex:1; min-width:140px;">
+            <label class="form-label">Weight</label>
+            <div class="flex" style="justify-content: space-between; align-items: flex-end; width: 100%;">
+                <input type="number" class="form-input" id="bodyWeight" value="{{ settings.get('body_weight', '75') }}"
+                    style="flex: 1; min-width: 0; margin-right: 4px;">
+                <select class="form-input" id="weightUnit"
+                    style="width:65px; padding-left:4px; padding-right:4px; flex: none;">
+                    <option value="kg" {{ 'selected' if settings.get('weight_unit','kg')=='kg' }}>kg</option>
+                    <option value="lbs" {{ 'selected' if settings.get('weight_unit','kg')=='lbs' }}>lbs</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin:0; flex:1; min-width:100px;">
+            <label class="form-label">Height (cm)</label>
+            <input type="number" class="form-input" id="userHeight" value="{{ settings.get('user_height', '') }}"
+                placeholder="180">
+        </div>
+
+        <div class="form-group" style="margin:0; flex:1; min-width:80px;">
+            <label class="form-label">Age</label>
+            <input type="number" class="form-input" id="userAge" value="{{ settings.get('user_age', '') }}"
+                placeholder="25" min="10" max="120">
+        </div>
+
+        <div class="form-group" style="margin:0; flex:1; min-width:120px;">
+            <label class="form-label">Sex</label>
+            <select class="form-input" id="userSex">
+                <option value="" {{ 'selected' if not settings.get('user_sex') }}>-</option>
+                <option value="male" {{ 'selected' if settings.get('user_sex')=='male' }}>Male</option>
+                <option value="female" {{ 'selected' if settings.get('user_sex')=='female' }}>Female</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin:0; flex:1; min-width:130px;">
+            <label class="form-label">Distance</label>
+            <select class="form-input" id="distUnit">
+                <option value="km" {{ 'selected' if settings.get('distance_unit','km')=='km' }}>Kilometers</option>
+                <option value="mi" {{ 'selected' if settings.get('distance_unit','km')=='mi' }}>Miles</option>
+            </select>
+        </div>
+
+        <div style="margin:0; display:flex;">
+            <button class="btn btn-primary" style="height:38px; white-space:nowrap;" onclick="savePrefs()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Appearance -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">Appearance</div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; flex:1; min-width:180px;">
+            <label class="form-label">Theme</label>
+            <select class="form-input" id="appTheme">
+                <option value="oled" {{ 'selected' if settings.get('theme','oled')=='oled' }}>OLED (Pitch Black)
+                </option>
+                <option value="dark" {{ 'selected' if settings.get('theme','oled')=='dark' }}>Dark (LCD Friendly)
+                </option>
+                <option value="white" {{ 'selected' if settings.get('theme','oled')=='white' }}>White (Light Mode)
+                </option>
+            </select>
+        </div>
+        <div style="margin:0; display:flex;">
+            <button class="btn btn-primary" style="height:38px; white-space:nowrap;" onclick="saveAppearance()">Apply
+                Theme</button>
+        </div>
+    </div>
+</div>
+
+<!-- Data Management -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">Data Management</div>
+    </div>
+    <div class="flex flex-col gap-16">
+        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);">
+            <div>
+                <div style="font-weight:500;">AI Cache</div>
+                <div class="label-caps">Clear cached AI recommendations</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="clearCache()">Clear Cache</button>
+        </div>
+        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);">
+            <div>
+                <div style="font-weight:500;">Sync History</div>
+                <div class="label-caps" id="syncHistoryLabel">Loading...</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="toggleSyncHistory()">View History</button>
+        </div>
+        <div id="syncHistoryPanel" class="hidden" style="margin-top:-8px;">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Activities</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="syncHistoryTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Disclaimer -->
+<div class="card mb-24" style="border-color:var(--border);">
+    <div class="card-header">
+        <div class="card-title">Disclaimer</div>
+    </div>
+    <div style="font-size:0.8125rem;line-height:1.6;color:var(--text-secondary);">
+        The creator of HealthTerminal is not responsible for any training, nutrition, or health advice generated by the
+        AI. All recommendations are produced by a third-party language model and should not be treated as professional
+        medical, dietary, or fitness guidance. Always consult a qualified healthcare professional before making changes
+        to your training or nutrition. Use at your own risk.
+        <br><br>
+        The AI's nutritional guidance is based on opinions regarding red meat consumption, seed oil avoidance, and
+        animal-based nutrition that are considered valid by the developer and consulted professionals but may not align
+        with official government dietary guidelines. This data is considered critical by governments worldwide and does
+        not comply with common state-endorsed nutritional recommendations and propaganda. The user is encouraged to do
+        their own research and form their own conclusions.
+    </div>
+</div>
+
+<!-- Danger Zone -->
+<div class="card danger-zone mb-24">
+    <div class="card-header">
+        <div class="card-title" style="color:var(--danger);">Danger Zone</div>
+    </div>
+    <div class="flex justify-between items-center">
+        <div>
+            <div style="font-weight:500;">Reset All Data</div>
+            <div class="label-caps">Delete all activities, sync data, and AI cache. Settings are preserved.</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="confirmReset()">Reset Data</button>
+    </div>
+</div>
+
+<!-- Links -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">About</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+        <a href="https://javon-web.de" target="_blank" rel="noopener" class="flex items-center gap-8"
+            style="color:var(--text-primary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border);">
+            <svg width="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <path
+                    d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            javon-web.de
+            <svg width="14" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24"
+                style="margin-left:auto;">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+            </svg>
+        </a>
+        <a href="https://github.com/jqvxz" target="_blank" rel="noopener" class="flex items-center gap-8"
+            style="color:var(--text-primary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border);">
+            <svg width="18" fill="currentColor" viewBox="0 0 24 24">
+                <path
+                    d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            github.com/jqvxz
+            <svg width="14" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24"
+                style="margin-left:auto;">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+            </svg>
+        </a>
+    </div>
+    <div class="label-caps mt-16" style="color:var(--text-muted);">HealthTerminal V1.0 · Built with Flask + Chart.js
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', loadSyncHistoryLabel);
+
+    async function saveApiKey() {
+        const key = document.getElementById('apiKeyInput').value;
+        await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ openrouter_api_key: key }) });
+        showToast('API key saved', 'success');
+    }
+
+    async function validateKey() {
+        const key = document.getElementById('apiKeyInput').value;
+        const status = document.getElementById('apiStatus');
+        status.innerHTML = '<span class="spinner" style="width:12px;height:12px;"></span> Testing...';
+        try {
+            const res = await fetch('/api/settings/validate-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
+            const data = await res.json();
+            if (data.valid) {
+                status.innerHTML = '<span style="color:var(--accent);">✓ Valid</span>';
+                showToast('API key is valid!', 'success');
+            } else {
+                status.innerHTML = '<span style="color:var(--danger);">✗ Invalid</span>';
+                showToast('API key invalid: ' + (data.error || 'Unknown'), 'error');
+            }
+        } catch (e) { status.innerHTML = '<span style="color:var(--danger);">✗ Error</span>'; }
+    }
+
+    async function savePrefs() {
+        const data = {
+            body_weight: document.getElementById('bodyWeight').value,
+            weight_unit: document.getElementById('weightUnit').value,
+            distance_unit: document.getElementById('distUnit').value,
+            user_height: document.getElementById('userHeight').value,
+            user_age: document.getElementById('userAge').value,
+            user_sex: document.getElementById('userSex').value,
+        };
+        await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        showToast('Preferences saved', 'success');
+    }
+
+    async function saveAppearance() {
+        const theme = document.getElementById('appTheme').value;
+        await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+        document.body.setAttribute('data-theme', theme);
+        showToast('Theme updated', 'success');
+    }
+
+    async function clearCache() {
+        await fetch('/api/settings/clear-cache', { method: 'POST' });
+        showToast('AI cache cleared', 'success');
+    }
+
+    function confirmReset() {
+        if (confirm('This will delete ALL activity data. Are you sure?')) {
+            if (confirm('This action cannot be undone. Really delete everything?')) {
+                resetData();
+            }
+        }
+    }
+
+    async function resetData() {
+        await fetch('/api/settings/clear-data', { method: 'POST' });
+        showToast('All data reset', 'success');
+        loadSyncHistoryLabel();
+    }
+
+    async function loadSyncHistoryLabel() {
+        try {
+            const res = await fetch('/api/settings/sync-history');
+            const history = await res.json();
+            const el = document.getElementById('syncHistoryLabel');
+            if (history.length) {
+                const total = history.reduce((s, h) => s + (h.activities_synced || 0), 0);
+                el.textContent = `${history.length} syncs · ${total} activities total`;
+            } else { el.textContent = 'No syncs yet'; }
+        } catch (e) { }
+    }
+
+    async function toggleSyncHistory() {
+        const panel = document.getElementById('syncHistoryPanel');
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) {
+            const res = await fetch('/api/settings/sync-history');
+            const history = await res.json();
+            document.getElementById('syncHistoryTable').innerHTML = history.map(h =>
+                `<tr><td class="td-muted">${timeAgo(h.created_at)}</td><td class="data-mono">${h.activities_synced}</td><td><span class="badge ${h.status === 'success' ? 'badge-accent' : 'badge-danger'}">${h.status}</span></td></tr>`
+            ).join('') || '<tr><td colspan="3"><div class="empty-state"><p>No sync history</p></div></td></tr>';
+        }
+    }
+</script>
+{% endblock %}

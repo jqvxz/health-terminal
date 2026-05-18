@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Calendar{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="flex justify-between items-center">
+        <div><h2>Activity Calendar</h2><p>Your training schedule overview</p></div>
+        <div class="flex gap-8 items-center">
+            <button class="btn btn-ghost btn-sm" onclick="changeMonth(-1)">← Prev</button>
+            <span class="data-md" id="calMonthLabel"></span>
+            <button class="btn btn-ghost btn-sm" onclick="changeMonth(1)">Next →</button>
+        </div>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="flex gap-16 mb-16 items-center">
+    <div class="flex items-center gap-8"><span class="cal-dot run" style="position:static;"></span><span class="label-caps">Running</span></div>
+    <div class="flex items-center gap-8"><span class="cal-dot lift" style="position:static;"></span><span class="label-caps">Lifting</span></div>
+    <div class="flex items-center gap-8"><span class="cal-dot other" style="position:static;"></span><span class="label-caps">Other</span></div>
+</div>
+
+<!-- Calendar -->
+<div class="card mb-24">
+    <div class="cal-grid">
+        <div class="cal-header">Mon</div><div class="cal-header">Tue</div><div class="cal-header">Wed</div>
+        <div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div><div class="cal-header">Sun</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+</div>
+
+<!-- Day Detail -->
+<div class="card hidden" id="dayDetail">
+    <div class="card-header">
+        <div class="card-title" id="dayDetailTitle">Activities</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dayDetail').classList.add('hidden')">Close</button>
+    </div>
+    <div id="dayDetailBody"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let calYear, calMonth;
+const today = new Date();
+calYear = today.getFullYear();
+calMonth = today.getMonth();
+
+document.addEventListener('DOMContentLoaded', renderCalendar);
+
+function changeMonth(dir) {
+    calMonth += dir;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderCalendar();
+}
+
+async function renderCalendar() {
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('calMonthLabel').textContent = `${months[calMonth]} ${calYear}`;
+
+    const start = `${calYear}-${String(calMonth+1).padStart(2,'0')}-01`;
+    const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+    const end = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${daysInMonth}`;
+
+    let activities = [];
+    try {
+        const res = await fetch(`/api/activities?start_date=${start}&end_date=${end}T23:59:59&limit=200`);
+        activities = await res.json();
+    } catch(e) {}
+
+    // Group by day
+    const dayMap = {};
+    activities.forEach(a => {
+        const day = (a.start_date_local || '').substring(8, 10);
+        const d = parseInt(day);
+        if (!dayMap[d]) dayMap[d] = [];
+        dayMap[d].push(a);
+    });
+
+    // Build grid
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const offset = firstDay === 0 ? 6 : firstDay - 1; // Monday-first
+    const todayDate = today.getDate();
+    const isCurrentMonth = calYear === today.getFullYear() && calMonth === today.getMonth();
+
+    let html = '';
+    // Empty cells before first day
+    for (let i = 0; i < offset; i++) html += '<div class="cal-day empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const isToday = isCurrentMonth && d === todayDate;
+        const acts = dayMap[d] || [];
+        const hasRun = acts.some(a => ['Run','VirtualRun','TrailRun'].includes(a.activity_type));
+        const hasLift = acts.some(a => a.is_hevy);
+        const hasOther = acts.some(a => !a.is_hevy && !['Run','VirtualRun','TrailRun'].includes(a.activity_type));
+        const count = acts.length;
+
+        let dots = '';
+        if (acts.length) {
+            dots = '<div class="cal-dots">';
+            if (hasRun) dots += '<div class="cal-dot run"></div>';
+            if (hasLift) dots += '<div class="cal-dot lift"></div>';
+            if (hasOther) dots += '<div class="cal-dot other"></div>';
+            dots += '</div>';
+        }
+
+        const countBadge = count > 1 ? `<span style="position:absolute;top:2px;right:4px;font-size:0.5625rem;color:var(--accent);font-weight:700;">${count}</span>` : '';
+
+        // Tooltip
+        let title = '';
+        if (acts.length) {
+            title = acts.map(a => {
+                const type = a.is_hevy ? 'Lifting' : a.activity_type;
+                const dur = a.moving_time ? Math.round(a.moving_time/60)+'min' : '';
+                return `${type} ${dur}`;
+            }).join(' | ');
+        }
+
+        html += `<div class="cal-day ${isToday?'today':''} ${acts.length ? 'has-activity' : ''}" onclick="showDayDetail(${d})" title="${title}">
+            ${countBadge}${d}${dots}
+        </div>`;
+    }
+
+    document.getElementById('calGrid').innerHTML = html;
+    window._calActivities = dayMap;
+}
+
+function showDayDetail(day) {
+    const acts = window._calActivities[day] || [];
+    if (!acts.length) return;
+
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('dayDetailTitle').textContent = `${months[calMonth]} ${day}, ${calYear} — ${acts.length} activit${acts.length>1?'ies':'y'}`;
+
+    const body = document.getElementById('dayDetailBody');
+    body.innerHTML = acts.map(a => {
+        const type = a.is_hevy ? '<span class="badge badge-accent">LIFT</span>' : `<span class="badge">${a.activity_type||'Activity'}</span>`;
+        const dur = a.moving_time ? Math.round(a.moving_time/60)+'min' : '';
+        const dist = a.distance ? (a.distance/1000).toFixed(1)+'km' : '';
+        const cal = a.calories ? Math.round(a.calories)+'kcal' : '';
+        const hr = a.average_heartrate ? Math.round(a.average_heartrate)+'bpm' : '';
+        const metrics = [dur, dist, cal, hr].filter(Boolean).join(' · ');
+        return `<div style="padding:12px 0;border-bottom:1px solid var(--border);">
+            <div class="flex justify-between items-center">
+                <div style="font-weight:500;">${a.name || 'Activity'}</div>
+                ${type}
+            </div>
+            <div class="label-caps mt-8">${metrics}</div>
+        </div>`;
+    }).join('');
+    document.getElementById('dayDetail').classList.remove('hidden');
+}
+</script>
+{% endblock %}

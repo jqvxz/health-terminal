@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Export{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Export Data</h2>
+    <p>Download your activity data or generate a shareable stats image</p>
+</div>
+
+<!-- Export Options -->
+<div class="card mb-24">
+    <div class="card-header"><div class="card-title">Export Options</div></div>
+
+    <div class="grid grid-2 mb-24">
+        <div class="form-group">
+            <label class="form-label">Format</label>
+            <select class="form-input" id="exportFormat">
+                <option value="csv">CSV (Spreadsheet)</option>
+                <option value="json">JSON (Developer)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Activity Type</label>
+            <select class="form-input" id="exportType">
+                <option value="">All Activities</option>
+                <option value="running">Running Only</option>
+                <option value="lifting">Lifting Only</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="grid grid-2 mb-24">
+        <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" class="form-input" id="exportStart">
+        </div>
+        <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input type="date" class="form-input" id="exportEnd">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="flex items-center gap-8" style="cursor:pointer;">
+            <input type="checkbox" id="exportLifting" style="accent-color:var(--accent);">
+            <span class="form-label" style="margin-bottom:0;">Include lifting details (sets, reps, weight)</span>
+        </label>
+    </div>
+
+    <div class="flex gap-8 items-center">
+        <button class="btn btn-primary" onclick="exportData()">
+            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download Export
+        </button>
+        <button class="btn btn-ghost" onclick="previewData()">Preview Data</button>
+        <button class="btn btn-secondary" onclick="loadExportSummary()">Show Summary</button>
+    </div>
+</div>
+
+<!-- Export Summary -->
+<div class="card mb-24 hidden" id="summaryCard">
+    <div class="card-header">
+        <div class="card-title">Export Summary</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('summaryCard').classList.add('hidden')">Close</button>
+    </div>
+    <div class="grid grid-3">
+        <div><div class="label-caps">Activities</div><div class="data-lg" id="sumCount">0</div></div>
+        <div><div class="label-caps">Date Range</div><div class="data-md" id="sumRange">—</div></div>
+        <div><div class="label-caps">Total Distance</div><div class="data-lg" id="sumDist">0</div><div class="stat-unit">km</div></div>
+    </div>
+    <div class="grid grid-3 mt-16">
+        <div><div class="label-caps">Total Calories</div><div class="data-md" id="sumCal">0</div><div class="stat-unit">kcal</div></div>
+        <div><div class="label-caps">Total Time</div><div class="data-md" id="sumTime">0</div><div class="stat-unit">hours</div></div>
+        <div><div class="label-caps">Activity Types</div><div id="sumTypes" class="mt-8"></div></div>
+    </div>
+</div>
+
+<!-- Share Image -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">Share Your Stats</div>
+    </div>
+    <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:16px;">Generate a shareable stats image with your performance summary.</p>
+    <div class="flex gap-8 mb-16">
+        <button class="btn btn-accent" onclick="generateShare()" id="shareBtn">
+            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+            Generate Image
+        </button>
+        <button class="btn btn-secondary hidden" onclick="downloadShareImage()" id="downloadShareBtn">
+            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download PNG
+        </button>
+    </div>
+    <div class="share-preview hidden" id="sharePreview"></div>
+</div>
+
+<!-- Preview -->
+<div class="card hidden" id="previewCard">
+    <div class="card-header">
+        <div class="card-title">Preview (<span id="previewCount">0</span> activities)</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('previewCard').classList.add('hidden')">Close</button>
+    </div>
+    <div class="table-container" style="max-height:400px;overflow-y:auto;">
+        <table>
+            <thead><tr><th>Date</th><th>Name</th><th>Type</th><th>Distance</th><th>Duration</th><th>Calories</th></tr></thead>
+            <tbody id="previewTable"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function getExportParams() {
+    const format = document.getElementById('exportFormat').value;
+    const type = document.getElementById('exportType').value;
+    const start = document.getElementById('exportStart').value;
+    const end = document.getElementById('exportEnd').value;
+    const lifting = document.getElementById('exportLifting').checked;
+    let params = [];
+    if (type) params.push(`type=${type}`);
+    if (start) params.push(`start_date=${start}`);
+    if (end) params.push(`end_date=${end}`);
+    if (lifting) params.push('include_lifting=true');
+    return { format, query: params.length ? '?' + params.join('&') : '' };
+}
+
+function exportData() {
+    const { format, query } = getExportParams();
+    window.location.href = `/api/export/${format}${query}`;
+    showToast(`Downloading ${format.toUpperCase()} export...`, 'success');
+}
+
+async function previewData() {
+    const { query } = getExportParams();
+    try {
+        const res = await fetch(`/api/activities${query || '?limit=50'}`);
+        const data = await res.json();
+        document.getElementById('previewCount').textContent = data.length;
+        document.getElementById('previewTable').innerHTML = data.map(a => {
+            const date = (a.start_date_local||'').substring(0,10);
+            const dist = a.distance ? (a.distance/1000).toFixed(1)+'km' : '—';
+            const dur = a.moving_time ? Math.round(a.moving_time/60)+'min' : '—';
+            return `<tr><td class="td-muted">${date}</td><td>${a.name||'—'}</td><td>${a.activity_type||'—'}</td><td class="data-mono">${dist}</td><td class="data-mono">${dur}</td><td class="data-mono">${a.calories?Math.round(a.calories):'—'}</td></tr>`;
+        }).join('');
+        document.getElementById('previewCard').classList.remove('hidden');
+    } catch(e) { showToast('Failed to load preview', 'error'); }
+}
+
+async function loadExportSummary() {
+    const { query } = getExportParams();
+    try {
+        const res = await fetch(`/api/export/summary${query}`);
+        const data = await res.json();
+        document.getElementById('sumCount').textContent = data.count;
+        document.getElementById('sumRange').textContent = data.date_range || '—';
+        document.getElementById('sumDist').textContent = data.total_distance_km || 0;
+        document.getElementById('sumCal').textContent = data.total_calories || 0;
+        document.getElementById('sumTime').textContent = data.total_hours || 0;
+        const typesEl = document.getElementById('sumTypes');
+        typesEl.innerHTML = Object.entries(data.types || {}).map(([t, c]) =>
+            `<span class="badge" style="margin:2px;">${t}: ${c}</span>`
+        ).join('');
+        document.getElementById('summaryCard').classList.remove('hidden');
+    } catch(e) { showToast('Failed to load summary', 'error'); }
+}
+
+let shareCanvas = null;
+async function generateShare() {
+    const btn = document.getElementById('shareBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+    try {
+        const res = await fetch('/api/export/share-data');
+        const data = await res.json();
+        shareCanvas = generateShareImage(data);
+        const preview = document.getElementById('sharePreview');
+        preview.innerHTML = '';
+        preview.appendChild(shareCanvas);
+        preview.classList.remove('hidden');
+        document.getElementById('downloadShareBtn').classList.remove('hidden');
+    } catch(e) { showToast('Failed to generate image', 'error'); }
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg> Generate Image';
+}
+
+function downloadShareImage() {
+    if (shareCanvas) downloadCanvas(shareCanvas, 'healthterminal-stats.png');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="flex justify-between items-center">
+        <div>
+            <h2>Dashboard</h2>
+            <p>Your performance overview</p>
+        </div>
+        <div class="flex gap-8 items-center">
+            {% if settings.get('strava_connected') == '1' %}
+            <span class="label-caps" id="lastSyncLabel" style="color:var(--text-muted);"></span>
+            <button class="btn btn-secondary btn-sm" onclick="syncActivities()" id="syncBtn">
+                <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                Sync
+            </button>
+            {% else %}
+            <a href="/auth/strava" class="btn btn-accent btn-sm">Connect Strava</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="grid grid-4 mb-24" id="statsGrid">
+    <div class="card">
+        <div class="card-title">Total Activities</div>
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-unit">this week</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Distance</div>
+        <div class="stat-value" id="statDistance">—</div>
+        <div class="stat-unit">km this week</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Calories Burned</div>
+        <div class="stat-value" id="statCalories">—</div>
+        <div class="stat-unit">kcal this week</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Volume Lifted</div>
+        <div class="stat-value" id="statVolume">—</div>
+        <div class="stat-unit">kg this week</div>
+    </div>
+</div>
+
+<!-- Nutrition Summary -->
+<div class="card mb-24" id="nutritionCard" style="display:none;">
+    <div class="card-header">
+        <div class="card-title">Today's Nutrition Recommendation</div>
+        <div class="label-caps" id="nutritionActivityCount"></div>
+    </div>
+    <div class="grid grid-4" id="nutritionGrid">
+        <div>
+            <div class="label-caps">Maintenance Calories</div>
+            <div class="flex items-baseline" style="gap: 4px;">
+                <div class="data-lg" id="nutCalories">—</div>
+                <div style="font-size:1.25rem; color:var(--text-secondary); font-weight:600;">±</div>
+            </div>
+            <div style="font-size:0.6875rem; color:var(--text-secondary); margin-top:4px; display:flex; flex-direction:column; gap:2px; font-weight:500;">
+                <div>CUT: <span id="nutCut" style="color:var(--text-primary)">—</span></div>
+                <div>BULK: <span id="nutBulk" style="color:var(--text-primary)">—</span></div>
+            </div>
+        </div>
+        <div><div class="label-caps">Protein</div><div class="data-lg" id="nutProtein">—</div><div class="stat-unit">grams</div></div>
+        <div><div class="label-caps">Carbs</div><div class="data-lg" id="nutCarbs">—</div><div class="stat-unit">grams</div></div>
+        <div><div class="label-caps">Fat</div><div class="data-lg" id="nutFat">—</div><div class="stat-unit">grams</div></div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-2 mb-24">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Activity This Week</div>
+        </div>
+        <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Activity Type Split</div>
+        </div>
+        <div class="chart-wrap"><canvas id="typeChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Recent Activities -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">Recent Activities</div>
+        <div class="flex gap-8">
+            <button class="tab-btn active" onclick="filterRecent('all', this)">All</button>
+            <button class="tab-btn" onclick="filterRecent('running', this)">Running</button>
+            <button class="tab-btn" onclick="filterRecent('lifting', this)">Lifting</button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Activity</th>
+                    <th>Type</th>
+                    <th>Duration</th>
+                    <th>Distance</th>
+                    <th>Calories</th>
+                    <th>HR Avg</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="recentTable">
+                <tr><td colspan="7" class="empty-state"><p>Loading activities...</p></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- AI Quick Insight -->
+<div class="ai-box mb-24">
+    <div class="ai-label">
+        <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
+        AI Quick Analysis
+    </div>
+    <div id="dashAiResponse" class="ai-response" style="color:var(--text-secondary);">
+        Press the button below to get AI-powered insights about your recent training.
+    </div>
+    <div class="flex justify-between items-center mt-16">
+        <button class="btn btn-accent btn-sm" onclick="runDashAI()" id="dashAiBtn">
+            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
+            Analyze My Week
+        </button>
+        <div class="usage-text" id="dashUsage"></div>
+    </div>
+</div>
+
+<!-- Goals -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">Active Goals</div>
+        <button class="btn btn-ghost btn-sm" onclick="openGoalModal()">+ Add Goal</button>
+    </div>
+    <div id="goalsList"></div>
+</div>
+
+<!-- Goal Modal -->
+<div class="modal-overlay" id="goalModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>New Goal</h3>
+            <button class="modal-close" onclick="closeGoalModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <!-- Category Tabs -->
+            <div class="flex gap-8 mb-16">
+                <button class="tab-btn active" id="goalCatRunning" onclick="setGoalCategory('running')">Running</button>
+                <button class="tab-btn" id="goalCatWeight" onclick="setGoalCategory('weight')">Weight Training</button>
+            </div>
+
+            <!-- Goal Type Select -->
+            <div class="form-group">
+                <label class="form-label">Goal Type</label>
+                <select class="form-input" id="goalMetric" onchange="updateGoalFields()">
+                    <!-- Populated by setGoalCategory -->
+                </select>
+            </div>
+
+            <!-- Dynamic Title (auto-generated but editable) -->
+            <div class="form-group">
+                <label class="form-label">Goal Title</label>
+                <input type="text" class="form-input" id="goalTitle" placeholder="Auto-generated from your selection">
+            </div>
+
+            <!-- Dynamic Fields Container -->
+            <div id="goalDynamicFields"></div>
+
+            <!-- Deadline -->
+            <div class="form-group">
+                <label class="form-label">Deadline (optional)</label>
+                <input type="date" class="form-input" id="goalDeadline">
+            </div>
+
+            <button class="btn btn-primary w-full mt-8" onclick="createGoal()">Create Goal</button>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Detail Modal -->
+<div class="modal-overlay" id="dashDetailModal">
+    <div class="modal" style="max-width:720px;">
+        <div class="modal-header">
+            <h3 id="dashDetailTitle">Activity Details</h3>
+            <button class="modal-close" onclick="document.getElementById('dashDetailModal').classList.remove('active')">×</button>
+        </div>
+        <div class="modal-body" id="dashDetailBody"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    loadDashboard();
+    loadAIUsage();
+    loadGoals();
+    loadSyncStatus();
+
+    if (window.location.search.includes('add_goal=true')) {
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                openGoalModal();
+            }, 350);
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    loadNutrition();
+});
+
+async function loadSyncStatus() {
+    try {
+        const res = await fetch('/api/sync/status');
+        const data = await res.json();
+        const el = document.getElementById('lastSyncLabel');
+        if (el && data.last_sync) {
+            el.textContent = 'Synced ' + timeAgo(data.last_sync);
+        }
+    } catch(e) {}
+}
+
+async function loadNutrition() {
+    try {
+        const res = await fetch('/api/nutrition/daily');
+        const data = await res.json();
+        if (data.activity_count > 0) {
+            document.getElementById('nutritionCard').style.display = '';
+            document.getElementById('nutritionActivityCount').textContent = `Based on ${data.activity_count} activities today`;
+            
+            const total = data.total_calories || 0;
+            animateValue(document.getElementById('nutCalories'), total);
+            animateValue(document.getElementById('nutCut'), Math.max(0, total - 500));
+            animateValue(document.getElementById('nutBulk'), total + 200);
+            
+            animateValue(document.getElementById('nutProtein'), data.protein_g || 0);
+            animateValue(document.getElementById('nutCarbs'), data.carbs_g || 0);
+            animateValue(document.getElementById('nutFat'), data.fat_g || 0);
+        }
+    } catch(e) {}
+}
+
+async function loadDashboard() {
+    try {
+        const [statsRes, activitiesRes] = await Promise.all([
+            fetch('/api/stats/weekly'),
+            fetch('/api/activities?limit=15')
+        ]);
+        const stats = await statsRes.json();
+        const activities = await activitiesRes.json();
+
+        // Animate stat cards
+        const runCount = stats.running?.count || 0;
+        const liftCount = stats.lifting?.count || 0;
+        animateValue(document.getElementById('statTotal'), runCount + liftCount);
+        animateDecimal(document.getElementById('statDistance'), (stats.running?.total_distance || 0) / 1000);
+        animateValue(document.getElementById('statCalories'), Math.round((stats.running?.total_calories || 0) + (stats.lifting?.total_calories || 0)));
+        animateValue(document.getElementById('statVolume'), Math.round(stats.total_volume || 0));
+
+        // Render table
+        window._allActivities = activities;
+        renderRecentTable(activities);
+
+        // Render charts
+        renderWeeklyChart(activities);
+        renderTypeChart(activities);
+    } catch(e) {
+        console.error('Dashboard load error:', e);
+    }
+}
+
+function renderRecentTable(activities) {
+    const tbody = document.getElementById('recentTable');
+    if (!activities.length) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+            <h3>No activities yet</h3>
+            <p>Connect Strava and sync to see your data</p>
+        </div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML = activities.map(a => {
+        const date = a.start_date_local ? a.start_date_local.substring(0, 10) : '—';
+        const dur = a.moving_time ? Math.round(a.moving_time / 60) + 'min' : '—';
+        const dist = a.distance ? (a.distance / 1000).toFixed(1) + 'km' : '—';
+        const cal = a.calories ? Math.round(a.calories) : '—';
+        const hr = a.average_heartrate ? Math.round(a.average_heartrate) : '—';
+        const type = a.is_hevy ? '<span class="badge badge-accent">LIFT</span>' : '<span class="badge">' + (a.activity_type || '—') + '</span>';
+        const isLifting = a.is_hevy || a.activity_type === 'WeightTraining' || a.activity_type === 'Workout';
+        return `<tr onclick="showActivityDetail(${a.id}, ${isLifting ? 'true' : 'false'})" style="cursor:pointer;"><td class="td-muted">${date}</td><td>${a.name || '—'}</td><td>${type}</td><td class="data-mono">${dur}</td><td class="data-mono">${dist}</td><td class="data-mono">${cal}</td><td class="data-mono">${hr}</td><td><span class="badge badge-accent">VIEW</span></td></tr>`;
+    }).join('');
+}
+
+function filterRecent(type, btn) {
+    document.querySelectorAll('.card-header .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    let filtered = window._allActivities || [];
+    if (type === 'running') filtered = filtered.filter(a => ['Run','VirtualRun','TrailRun'].includes(a.activity_type));
+    else if (type === 'lifting') filtered = filtered.filter(a => a.is_hevy);
+    renderRecentTable(filtered);
+}
+
+async function syncActivities() {
+    const btn = document.getElementById('syncBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Syncing...';
+    try {
+        const res = await fetch('/api/sync');
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'error'); }
+        else { showToast(data.message, 'success'); loadDashboard(); loadSyncStatus(); loadNutrition(); }
+    } catch(e) { showToast('Sync failed', 'error'); }
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Sync';
+}
+
+async function runDashAI() {
+    const btn = document.getElementById('dashAiBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+    document.getElementById('dashAiResponse').textContent = 'Analyzing your recent training data...';
+    try {
+        const res = await fetch('/api/ai/analyze', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({prompt:'Give me a quick weekly summary and top 3 actionable recommendations.'}) });
+        const data = await res.json();
+        if (data.error) { document.getElementById('dashAiResponse').textContent = data.error; showToast(data.error, 'error'); }
+        else { document.getElementById('dashAiResponse').innerHTML = formatAI(data.response); loadAIUsage(); }
+    } catch(e) { document.getElementById('dashAiResponse').textContent = 'Failed to get AI analysis.'; }
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg> Analyze My Week';
+}
+
+async function loadAIUsage() {
+    try {
+        const res = await fetch('/api/ai/usage');
+        const data = await res.json();
+        document.getElementById('dashUsage').textContent = `${data.used}/${data.limit} requests today`;
+    } catch(e) {}
+}
+
+async function loadGoals() {
+    try {
+        const res = await fetch('/api/goals?status=active');
+        const goals = await res.json();
+        const el = document.getElementById('goalsList');
+        if (!goals.length) { el.innerHTML = '<div class="empty-state"><p>No goals set yet</p></div>'; return; }
+        el.innerHTML = goals.map(g => {
+            let pct = 0;
+            let textValue = `${g.current_value} / ${g.target_value} ${g.unit}`;
+
+            if (g.target_value > 0) {
+                if (g.metric === 'pace') {
+                    pct = g.current_value > 0 ? Math.min(100, Math.round((g.target_value / g.current_value) * 100)) : 0;
+                    textValue = `Current: ${g.current_value} ${g.unit} — Target: ${g.target_value} ${g.unit}`;
+                } else {
+                    pct = Math.min(100, Math.round((g.current_value / g.target_value) * 100));
+                }
+            }
+            return `<div style="padding:16px 0;border-bottom:1px solid var(--border);">
+                <div class="flex justify-between items-center mb-8">
+                    <span style="font-weight:500;">${g.title}</span>
+                    <div class="flex items-center gap-16">
+                        <span class="data-mono">${pct}%</span>
+                        <button class="btn-ghost btn-sm" style="border:none;background:none;color:var(--text-muted);cursor:pointer;padding:0;" onclick="deleteGoal(${g.id})">×</button>
+                    </div>
+                </div>
+                <div class="progress-bar"><div class="progress-fill ${pct>=100?'accent':''}" style="width:${pct}%;"></div></div>
+                <div class="label-caps mt-8" style="text-transform:none;">${textValue} ${g.deadline?'· Due '+g.deadline:''}</div>
+            </div>`;
+        }).join('');
+    } catch(e) {}
+}
+
+let _goalCategory = 'running';
+let _exerciseList = [];
+
+function openGoalModal() {
+    document.getElementById('goalModal').classList.add('active');
+    setGoalCategory('running');
+    fetchExerciseList();
+}
+function closeGoalModal() { document.getElementById('goalModal').classList.remove('active'); }
+
+async function fetchExerciseList() {
+    try {
+        const res = await fetch('/api/exercises');
+        _exerciseList = await res.json();
+    } catch(e) { _exerciseList = []; }
+}
+
+function setGoalCategory(cat) {
+    _goalCategory = cat;
+    document.getElementById('goalCatRunning').classList.toggle('active', cat === 'running');
+    document.getElementById('goalCatWeight').classList.toggle('active', cat === 'weight');
+    const sel = document.getElementById('goalMetric');
+    if (cat === 'running') {
+        sel.innerHTML = `
+            <option value="pace">Achieve a pace for a distance</option>
+            <option value="distance">Run a certain distance</option>
+            <option value="speed">Achieve a certain speed</option>
+            <option value="duration">Run a certain duration</option>`;
+    } else {
+        sel.innerHTML = `
+            <option value="volume_weekly">Achieve weekly volume</option>
+            <option value="volume_daily">Achieve daily volume</option>
+            <option value="volume_monthly">Achieve monthly volume</option>
+            <option value="pr">Achieve a PR in an exercise</option>`;
+    }
+    updateGoalFields();
+}
+
+function updateGoalFields() {
+    const metric = document.getElementById('goalMetric').value;
+    const container = document.getElementById('goalDynamicFields');
+    const titleEl = document.getElementById('goalTitle');
+    let html = '';
+
+    switch (metric) {
+        case 'pace':
+            html = `<div class="grid grid-2">
+                <div class="form-group"><label class="form-label">Target Pace (min/km)</label>
+                    <input type="number" step="0.01" class="form-input" id="goalTarget" placeholder="5.30"></div>
+                <div class="form-group"><label class="form-label">For Distance (km)</label>
+                    <input type="number" step="0.1" class="form-input" id="goalExtra" placeholder="5"></div>
+            </div>`;
+            titleEl.placeholder = 'e.g. Run 5km at 5:30/km pace';
+            break;
+        case 'distance':
+            html = `<div class="form-group"><label class="form-label">Target Distance (km)</label>
+                <input type="number" step="0.1" class="form-input" id="goalTarget" placeholder="50"></div>`;
+            titleEl.placeholder = 'e.g. Run 50km this month';
+            break;
+        case 'speed':
+            html = `<div class="form-group"><label class="form-label">Target Speed (km/h)</label>
+                <input type="number" step="0.1" class="form-input" id="goalTarget" placeholder="12"></div>`;
+            titleEl.placeholder = 'e.g. Achieve 12 km/h top speed';
+            break;
+        case 'duration':
+            html = `<div class="form-group"><label class="form-label">Target Duration (minutes)</label>
+                <input type="number" class="form-input" id="goalTarget" placeholder="60"></div>`;
+            titleEl.placeholder = 'e.g. Complete a 60min long run';
+            break;
+        case 'volume_weekly':
+        case 'volume_daily':
+        case 'volume_monthly':
+            const period = metric.replace('volume_', '');
+            html = `<div class="form-group"><label class="form-label">Target Volume (kg) — ${period}</label>
+                <input type="number" class="form-input" id="goalTarget" placeholder="10000"></div>`;
+            titleEl.placeholder = `e.g. Lift 10,000 kg ${period}`;
+            break;
+        case 'pr':
+            let options = _exerciseList.map(e => `<option value="${e}">${e}</option>`).join('');
+            if (!options) options = '<option value="">No exercises logged yet</option>';
+            html = `<div class="form-group"><label class="form-label">Exercise</label>
+                <select class="form-input" id="goalExercise">${options}</select></div>
+                <div class="form-group"><label class="form-label">Target Weight (kg)</label>
+                <input type="number" step="0.5" class="form-input" id="goalTarget" placeholder="100"></div>`;
+            titleEl.placeholder = 'e.g. Bench Press 100kg PR';
+            break;
+    }
+    container.innerHTML = html;
+}
+
+async function createGoal() {
+    const metric = document.getElementById('goalMetric').value;
+    const targetEl = document.getElementById('goalTarget');
+    const target = targetEl ? parseFloat(targetEl.value) : 0;
+    let title = document.getElementById('goalTitle').value;
+
+    if (!target) { showToast('Enter a target value', 'error'); return; }
+
+    // Auto-generate title if empty
+    if (!title) {
+        switch (metric) {
+            case 'pace':
+                const dist = document.getElementById('goalExtra')?.value || '?';
+                title = `Run ${dist}km at ${target} min/km`; break;
+            case 'distance': title = `Run ${target} km`; break;
+            case 'speed': title = `Achieve ${target} km/h`; break;
+            case 'duration': title = `Complete a ${target} min run`; break;
+            case 'volume_weekly': title = `Lift ${target.toLocaleString()} kg weekly`; break;
+            case 'volume_daily': title = `Lift ${target.toLocaleString()} kg daily`; break;
+            case 'volume_monthly': title = `Lift ${target.toLocaleString()} kg monthly`; break;
+            case 'pr':
+                const ex = document.getElementById('goalExercise')?.value || 'Exercise';
+                title = `${ex} — ${target} kg PR`; break;
+        }
+    }
+
+    // Build unit string
+    let unit = 'km';
+    if (metric === 'pace') unit = 'min/km';
+    else if (metric === 'speed') unit = 'km/h';
+    else if (metric === 'duration') unit = 'min';
+    else if (metric.startsWith('volume_')) unit = 'kg';
+    else if (metric === 'pr') unit = 'kg';
+
+    const data = {
+        title,
+        target_value: target,
+        unit,
+        activity_type: _goalCategory === 'running' ? 'running' : 'lifting',
+        goal_type: metric.startsWith('volume_') ? metric.replace('volume_', '') : metric,
+        metric,
+    };
+
+    // Store exercise name in goal_type for PR goals
+    if (metric === 'pr') {
+        const exercise = document.getElementById('goalExercise')?.value || '';
+        data.goal_type = 'pr:' + exercise;
+    }
+
+    // Store extra value (distance for pace goals)
+    if (metric === 'pace') {
+        const extra = document.getElementById('goalExtra')?.value;
+        if (extra) data.goal_type = 'pace:' + extra;
+    }
+
+    await fetch('/api/goals', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    closeGoalModal();
+    loadGoals();
+    showToast('Goal created', 'success');
+}
+
+async function deleteGoal(id) {
+    await fetch(`/api/goals/${id}`, {method:'DELETE'});
+    loadGoals();
+}
+
+// Polyline decoder
+function decodePolyline(encoded) {
+    const points = [];
+    let index = 0, lat = 0, lng = 0;
+    while (index < encoded.length) {
+        let b, shift = 0, result = 0;
+        do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+        shift = 0; result = 0;
+        do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+        points.push([lat / 1e5, lng / 1e5]);
+    }
+    return points;
+}
+
+let dashMapInstance = null;
+const dashModalCharts = {};
+function destroyDashModalCharts() {
+    Object.keys(dashModalCharts).forEach(k => { if (dashModalCharts[k]) { dashModalCharts[k].destroy(); delete dashModalCharts[k]; } });
+}
+
+async function showActivityDetail(id, isHevy) {
+    try {
+        destroyDashModalCharts();
+        const res = await fetch(`/api/activities/${id}`);
+        const data = await res.json();
+        document.getElementById('dashDetailTitle').textContent = data.name || 'Activity Details';
+        const body = document.getElementById('dashDetailBody');
+
+        if (isHevy) {
+            // Lifting detail (same as lifting page modal)
+            const details = data.lifting_details || [];
+            const totalVol = details.filter(d=>!d.is_warmup).reduce((s,d)=>s+(d.weight||0)*(d.reps||0),0);
+            const grouped = {};
+            details.forEach(d => { if (!grouped[d.exercise_name]) grouped[d.exercise_name] = []; grouped[d.exercise_name].push(d); });
+
+            let html = `<div class="flex gap-16 mb-16">
+                <div><div class="label-caps">Total Volume</div><div class="data-md">${Math.round(totalVol).toLocaleString()} kg</div></div>
+                <div><div class="label-caps">Exercises</div><div class="data-md">${Object.keys(grouped).length}</div></div>
+                <div><div class="label-caps">Duration</div><div class="data-md">${data.moving_time?Math.round(data.moving_time/60)+'min':'—'}</div></div>
+                <div><div class="label-caps">Calories</div><div class="data-md">${data.calories?Math.round(data.calories)+' kcal':'—'}</div></div>
+            </div>`;
+
+            for (const [name, sets] of Object.entries(grouped)) {
+                const muscle = sets[0].muscle_group || '';
+                html += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                    <div class="flex justify-between items-center mb-8">
+                        <span style="font-weight:600;">${name}</span>
+                        ${muscle ? `<span class="badge">${muscle}</span>` : ''}
+                    </div>
+                    <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:4px 16px;font-size:0.8125rem;">
+                        <div class="label-caps">Set</div><div class="label-caps">Weight</div><div class="label-caps">Reps</div><div class="label-caps">Vol</div>
+                        ${sets.map(s => `<div class="data-mono ${s.is_warmup?'td-muted':''}">${s.is_warmup?'W':''}${s.set_number}</div>
+                            <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.weight}${s.weight_unit||'kg'}</div>
+                            <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.reps}</div>
+                            <div class="data-mono ${s.is_warmup?'td-muted':''}">${Math.round((s.weight||0)*(s.reps||0))}kg</div>`).join('')}
+                    </div>
+                </div>`;
+            }
+            body.innerHTML = html;
+            document.getElementById('dashDetailModal').classList.add('active');
+        } else {
+            // Running / cardio detail
+            const dist = data.distance ? (data.distance/1000).toFixed(2) : '—';
+            const pace = (data.distance > 0 && data.moving_time > 0) ? (() => { const p = (data.moving_time/60)/(data.distance/1000); const m = Math.floor(p); const s = Math.round((p-m)*60); return `${m}:${String(s).padStart(2,'0')}`; })() : '—';
+            const dur = data.moving_time ? (() => { const h=Math.floor(data.moving_time/3600); const m=Math.floor((data.moving_time%3600)/60); const s=data.moving_time%60; return h>0?`${h}h ${m}m`:`${m}m ${s}s`; })() : '—';
+            const avgSpeed = data.average_speed ? (data.average_speed*3.6).toFixed(1) : '—';
+            const maxSpeed = data.max_speed ? (data.max_speed*3.6).toFixed(1) : '—';
+            const hr = data.average_heartrate ? Math.round(data.average_heartrate) : '—';
+            const hrMax = data.max_heartrate ? Math.round(data.max_heartrate) : '—';
+            const elev = data.total_elevation_gain ? Math.round(data.total_elevation_gain) : '—';
+            const cal = data.calories ? Math.round(data.calories) : '—';
+            const cadence = data.average_cadence ? Math.round(data.average_cadence*2) : '—';
+            const date = (data.start_date_local||'').substring(0,10);
+
+            let html = '';
+            if (data.map_polyline) {
+                html += `<div id="dashDetailMap" style="height:240px;border-radius:var(--radius);overflow:hidden;margin-bottom:16px;border:1px solid var(--border);"></div>`;
+            }
+            html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+                <div><div class="label-caps">Distance</div><div class="data-md">${dist} km</div></div>
+                <div><div class="label-caps">Duration</div><div class="data-md">${dur}</div></div>
+                <div><div class="label-caps">Pace</div><div class="data-md">${pace} /km</div></div>
+                <div><div class="label-caps">Calories</div><div class="data-md">${cal} kcal</div></div>
+            </div>`;
+            html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+                <div><div class="label-caps">Avg Speed</div><div class="data-md">${avgSpeed} km/h</div></div>
+                <div><div class="label-caps">Max Speed</div><div class="data-md">${maxSpeed} km/h</div></div>
+                <div><div class="label-caps">Elevation</div><div class="data-md">${elev} m</div></div>
+                <div><div class="label-caps">Cadence</div><div class="data-md">${cadence} spm</div></div>
+            </div>`;
+            if (data.average_heartrate) {
+                html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-top:12px;border-top:1px solid var(--border);">
+                    <div><div class="label-caps">Avg HR</div><div class="data-md" style="color:var(--danger);">${hr} bpm</div></div>
+                    <div><div class="label-caps">Max HR</div><div class="data-md" style="color:var(--danger);">${hrMax} bpm</div></div>
+                    <div><div class="label-caps">Suffer Score</div><div class="data-md">${data.suffer_score||'—'}</div></div>
+                    <div><div class="label-caps">Date</div><div class="data-md">${date}</div></div>
+                </div>`;
+            }
+
+            // 2x2 chart grid
+            html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                <div><div class="label-caps" style="margin-bottom:8px;">Heart Rate</div><div style="height:160px;position:relative;"><canvas id="dashModalHR"></canvas></div></div>
+                <div><div class="label-caps" style="margin-bottom:8px;">Speed</div><div style="height:160px;position:relative;"><canvas id="dashModalSpeed"></canvas></div></div>
+                <div><div class="label-caps" style="margin-bottom:8px;">Pace</div><div style="height:160px;position:relative;"><canvas id="dashModalPace"></canvas></div></div>
+                <div><div class="label-caps" style="margin-bottom:8px;">Elevation</div><div style="height:160px;position:relative;"><canvas id="dashModalElev"></canvas></div></div>
+            </div>
+            <div class="label-caps" style="text-align:center;margin-top:8px;color:var(--text-muted);" id="dashStreamsLoading">Loading stream data...</div>`;
+
+            body.innerHTML = html;
+            document.getElementById('dashDetailModal').classList.add('active');
+
+            // Render map after modal is visible
+            if (data.map_polyline) {
+                setTimeout(() => {
+                    if (dashMapInstance) { dashMapInstance.remove(); dashMapInstance = null; }
+                    const mapEl = document.getElementById('dashDetailMap');
+                    if (!mapEl) return;
+                    dashMapInstance = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: true, scrollWheelZoom: false });
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(dashMapInstance);
+                    dashMapInstance.invalidateSize();
+                    const coords = decodePolyline(data.map_polyline);
+                    if (coords.length) {
+                        const polyline = L.polyline(coords, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(dashMapInstance);
+                        dashMapInstance.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+                        // Re-calculate after browser paint to fix zoom bug
+                        setTimeout(() => {
+                            dashMapInstance.invalidateSize();
+                            dashMapInstance.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+                        }, 100);
+                    }
+                }, 300);
+            }
+
+            // Fetch and render streams
+            try {
+                const sRes = await fetch(`/api/activities/${id}/streams`);
+                const streams = await sRes.json();
+                const loadEl = document.getElementById('dashStreamsLoading');
+                if (streams.error) { if (loadEl) loadEl.textContent = 'Stream data unavailable'; }
+                else {
+                    if (loadEl) loadEl.style.display = 'none';
+                    const distL = (streams.distance||[]).map(d => (d/1000).toFixed(1));
+                    const sr = Math.max(1, Math.floor(distL.length / 150));
+                    const sm = (arr) => arr.filter((_,i) => i % sr === 0);
+                    const sL = sm(distL);
+                    const cOpts = { responsive:true, maintainAspectRatio:false, animation:{duration:0}, elements:{point:{radius:0},line:{borderWidth:1.5}}, scales:{x:{display:false},y:{ticks:{color:'#888',font:{size:10,family:"'Geist',sans-serif"}},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}}}, plugins:{legend:{display:false},tooltip:{enabled:true,mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#bfff00',bodyColor:'#ccc',borderColor:'#333',borderWidth:1}} };
+                    if (streams.heartrate && streams.heartrate.length) {
+                        dashModalCharts.hr = new Chart(document.getElementById('dashModalHR'), { type:'line', data:{labels:sL,datasets:[{data:sm(streams.heartrate),borderColor:'#ff4444',backgroundColor:'rgba(255,68,68,0.1)',fill:true,tension:0.3}]}, options:{...cOpts,scales:{...cOpts.scales,y:{...cOpts.scales.y,title:{display:true,text:'bpm',color:'#888',font:{size:10}}}}} });
+                    }
+                    if (streams.velocity_smooth && streams.velocity_smooth.length) {
+                        const spd = streams.velocity_smooth.map(v => +(v*3.6).toFixed(1));
+                        dashModalCharts.speed = new Chart(document.getElementById('dashModalSpeed'), { type:'line', data:{labels:sL,datasets:[{data:sm(spd),borderColor:'#BFFF00',backgroundColor:'rgba(191,255,0,0.1)',fill:true,tension:0.3}]}, options:{...cOpts,scales:{...cOpts.scales,y:{...cOpts.scales.y,title:{display:true,text:'km/h',color:'#888',font:{size:10}}}}} });
+                        const pce = streams.velocity_smooth.map(v => v>0.3 ? +(1000/v/60).toFixed(2) : null);
+                        dashModalCharts.pace = new Chart(document.getElementById('dashModalPace'), { type:'line', data:{labels:sL,datasets:[{data:sm(pce),borderColor:'#4488ff',backgroundColor:'rgba(68,136,255,0.1)',fill:true,tension:0.3,spanGaps:true}]}, options:{...cOpts,scales:{...cOpts.scales,y:{...cOpts.scales.y,reverse:true,title:{display:true,text:'min/km',color:'#888',font:{size:10}}}}} });
+                    }
+                    if (streams.altitude && streams.altitude.length) {
+                        dashModalCharts.elev = new Chart(document.getElementById('dashModalElev'), { type:'line', data:{labels:sL,datasets:[{data:sm(streams.altitude),borderColor:'#88cc44',backgroundColor:'rgba(136,204,68,0.15)',fill:true,tension:0.3}]}, options:{...cOpts,scales:{...cOpts.scales,y:{...cOpts.scales.y,title:{display:true,text:'m',color:'#888',font:{size:10}}}}} });
+                    }
+                }
+            } catch(se) { const el = document.getElementById('dashStreamsLoading'); if (el) el.textContent = 'Stream data unavailable'; }
+        }
+
+    } catch(e) { showToast('Failed to load details', 'error'); console.error(e); }
+}
+</script>
+{% endblock %}
