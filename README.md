@@ -15,6 +15,8 @@ The purpose of HealthTerminal is to provide users with an uncompromising, no-non
 - **Detailed Analytics:** Granular breakdown of individual workouts, highlighting personal bests, heart rate zones, and volume shifts over time.
 - **Export Capabilities:** Generate shareable, high-fidelity PNG image summaries of performance statistics directly from the browser, along with Markdown exports for documentation.
 - **Responsive Theming:** Includes multiple CSS variable-based themes (e.g., OLED Dark, White mode) built with a responsive grid to accommodate both desktop and mobile viewing.
+- **Nutrition & Daily Fuel Tracking:** Log daily meals using a unified, multi-item search (e.g. `2 eggs, 100g white rice`) that aggregates macronutrients using Open Food Facts and API Ninjas APIs. Fuel metrics are persistently stored and displayed as activity dots on the calendar view.
+- **Metabolic AI Health Scan:** Run AI metabolic analysis based on your combined training volume and daily nutritional logs to get training adaptations and metabolic wellness insights.
 - **Supplementary AI Insights:** A secondary, on-demand feature that utilizes the OpenRouter API (Nemotron) to offer quick nutritional recaps or training volume suggestions based on locally tracked data.
 
 ## 4. Setup Instructions
@@ -23,6 +25,7 @@ The purpose of HealthTerminal is to provide users with an uncompromising, no-non
 - **Python 3.8+**
 - A **Strava API** account (Client ID & Secret)
 - An **OpenRouter API** key
+- An **API Ninjas API** key (optional, for parsing generic ingredient macros)
 - **Hevy linked to Strava:** Ensure your Hevy app is connected to Strava so your lifting sessions are automatically synced and ingested.
 
 ### Installation
@@ -50,11 +53,12 @@ The purpose of HealthTerminal is to provide users with an uncompromising, no-non
    - Copy the `.env.example` file and rename it to `.env`.
    - Fill in your API credentials:
      ```env
-     STRAVA_CLIENT_ID=your_client_id
-     STRAVA_CLIENT_SECRET=your_client_secret
-     OPENROUTER_API_KEY=your_openrouter_key
-     FLASK_SECRET_KEY=your_secure_random_string
-     BASE_URL=http://localhost:5000
+      STRAVA_CLIENT_ID=your_client_id
+      STRAVA_CLIENT_SECRET=your_client_secret
+      OPENROUTER_API_KEY=your_openrouter_key
+      APININJAS_API_KEY=your_apininjas_key
+      FLASK_SECRET_KEY=your_secure_random_string
+      BASE_URL=http://localhost:5000
      ```
 
 5. **Run the Application:**
@@ -84,7 +88,8 @@ ht-terminal/
 ├── routes/                 # API & View Endpoints
 │   ├── ai.py               # OpenRouter / AI integration endpoints
 │   ├── strava.py           # OAuth flow and Strava webhook handlers
-│   └── goals.py            # CRUD operations for user progress goals
+│   ├── goals.py            # CRUD operations for user progress goals
+│   └── nutrition.py        # Nutrition logging, search, and health scan endpoints
 │
 ├── services/               # Core Logic & Data Ingestion
 │   ├── strava_parser.py    # Parsing Strava payload data into DB schema
@@ -100,7 +105,8 @@ ht-terminal/
     ├── base.html           # Main application layout and sidebar
     ├── dashboard.html      # Primary data overview
     ├── recommendations.html# AI insight interactions
-    └── export.html         # Custom data extraction views
+    ├── export.html         # Custom data extraction views
+    └── nutrition.html      # Nutrition logging and metabolic scan dashboard
 ```
 
 ## 6. Contact
