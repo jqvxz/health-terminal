@@ -137,18 +137,47 @@ def init_db():
                 created_at TEXT DEFAULT (datetime('now'))
             );
 
+            CREATE TABLE IF NOT EXISTS nutrition_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query_key TEXT UNIQUE NOT NULL,
+                source TEXT NOT NULL,
+                response_json TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS nutrition_api_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usage_date TEXT NOT NULL,
+                request_count INTEGER DEFAULT 0,
+                UNIQUE(usage_date)
+            );
+
+            CREATE TABLE IF NOT EXISTS daily_food_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_date TEXT NOT NULL,
+                log_time TEXT NOT NULL,
+                name TEXT NOT NULL,
+                calories REAL NOT NULL,
+                protein REAL NOT NULL,
+                carbs REAL NOT NULL,
+                fat REAL NOT NULL,
+                tag TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            );
+
             -- Default settings
             INSERT OR IGNORE INTO settings (key, value) VALUES ('body_weight', '75');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('weight_unit', 'kg');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('distance_unit', 'km');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', 'dark');
-            INSERT OR IGNORE INTO settings (key, value) VALUES ('enabled_tabs', 'dashboard,running,lifting,progress,recommendations,calendar,export,settings');
+            INSERT OR IGNORE INTO settings (key, value) VALUES ('enabled_tabs', 'dashboard,running,lifting,progress,nutrition,recommendations,calendar,export,settings');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('strava_connected', '0');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('strava_access_token', '');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('strava_refresh_token', '');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('strava_token_expires', '0');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('strava_athlete_id', '');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('openrouter_api_key', '');
+            INSERT OR IGNORE INTO settings (key, value) VALUES ('apininjas_api_key', '');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('last_sync', '');
         """)
 
@@ -572,3 +601,44 @@ def get_sync_history(limit=10):
             "SELECT * FROM sync_log ORDER BY created_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_nutrition_cache(query_key):
+    """Retrieve cached nutrition result."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT response_json FROM nutrition_cache WHERE query_key = ?", (query_key.lower().strip(),)
+        ).fetchone()
+        return row["response_json"] if row else None
+
+
+def set_nutrition_cache(query_key, source, response_json):
+    """Cache a nutrition query result."""
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO nutrition_cache (query_key, source, response_json) VALUES (?, ?, ?)",
+            (query_key.lower().strip(), source, response_json),
+        )
+
+
+def get_nutrition_api_usage_today():
+    """Get the API Ninjas request count for today."""
+    from datetime import date
+    today = date.today().isoformat()
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT request_count FROM nutrition_api_usage WHERE usage_date = ?", (today,)
+        ).fetchone()
+        return row["request_count"] if row else 0
+
+
+def increment_nutrition_api_usage():
+    """Increment the API Ninjas usage counter for today."""
+    from datetime import date
+    today = date.today().isoformat()
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO nutrition_api_usage (usage_date, request_count) VALUES (?, 1) "
+            "ON CONFLICT(usage_date) DO UPDATE SET request_count = request_count + 1",
+            (today,),
+        )

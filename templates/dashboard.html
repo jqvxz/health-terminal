@@ -22,7 +22,6 @@
     </div>
 </div>
 
-<!-- Quick Stats -->
 <div class="grid grid-4 mb-24" id="statsGrid">
     <div class="card">
         <div class="card-title">Total Activities</div>
@@ -46,7 +45,6 @@
     </div>
 </div>
 
-<!-- Nutrition Summary -->
 <div class="card mb-24" id="nutritionCard" style="display:none;">
     <div class="card-header">
         <div class="card-title">Today's Nutrition Recommendation</div>
@@ -70,7 +68,6 @@
     </div>
 </div>
 
-<!-- Charts Row -->
 <div class="grid grid-2 mb-24">
     <div class="card">
         <div class="card-header">
@@ -86,7 +83,6 @@
     </div>
 </div>
 
-<!-- Recent Activities -->
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">Recent Activities</div>
@@ -117,7 +113,6 @@
     </div>
 </div>
 
-<!-- AI Quick Insight -->
 <div class="ai-box mb-24">
     <div class="ai-label">
         <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
@@ -135,7 +130,6 @@
     </div>
 </div>
 
-<!-- Goals -->
 <div class="card">
     <div class="card-header">
         <div class="card-title">Active Goals</div>
@@ -144,7 +138,6 @@
     <div id="goalsList"></div>
 </div>
 
-<!-- Goal Modal -->
 <div class="modal-overlay" id="goalModal">
     <div class="modal">
         <div class="modal-header">
@@ -152,30 +145,24 @@
             <button class="modal-close" onclick="closeGoalModal()">×</button>
         </div>
         <div class="modal-body">
-            <!-- Category Tabs -->
             <div class="flex gap-8 mb-16">
                 <button class="tab-btn active" id="goalCatRunning" onclick="setGoalCategory('running')">Running</button>
                 <button class="tab-btn" id="goalCatWeight" onclick="setGoalCategory('weight')">Weight Training</button>
             </div>
 
-            <!-- Goal Type Select -->
             <div class="form-group">
                 <label class="form-label">Goal Type</label>
                 <select class="form-input" id="goalMetric" onchange="updateGoalFields()">
-                    <!-- Populated by setGoalCategory -->
                 </select>
             </div>
 
-            <!-- Dynamic Title (auto-generated but editable) -->
             <div class="form-group">
                 <label class="form-label">Goal Title</label>
                 <input type="text" class="form-input" id="goalTitle" placeholder="Auto-generated from your selection">
             </div>
 
-            <!-- Dynamic Fields Container -->
             <div id="goalDynamicFields"></div>
 
-            <!-- Deadline -->
             <div class="form-group">
                 <label class="form-label">Deadline (optional)</label>
                 <input type="date" class="form-input" id="goalDeadline">
@@ -186,7 +173,6 @@
     </div>
 </div>
 
-<!-- Activity Detail Modal -->
 <div class="modal-overlay" id="dashDetailModal">
     <div class="modal" style="max-width:720px;">
         <div class="modal-header">
@@ -260,7 +246,6 @@ async function loadDashboard() {
         const stats = await statsRes.json();
         const activities = await activitiesRes.json();
 
-        // Animate stat cards
         const runCount = stats.running?.count || 0;
         const liftCount = stats.lifting?.count || 0;
         animateValue(document.getElementById('statTotal'), runCount + liftCount);
@@ -268,11 +253,9 @@ async function loadDashboard() {
         animateValue(document.getElementById('statCalories'), Math.round((stats.running?.total_calories || 0) + (stats.lifting?.total_calories || 0)));
         animateValue(document.getElementById('statVolume'), Math.round(stats.total_volume || 0));
 
-        // Render table
         window._allActivities = activities;
         renderRecentTable(activities);
 
-        // Render charts
         renderWeeklyChart(activities);
         renderTypeChart(activities);
     } catch(e) {
@@ -478,7 +461,6 @@ async function createGoal() {
 
     if (!target) { showToast('Enter a target value', 'error'); return; }
 
-    // Auto-generate title if empty
     if (!title) {
         switch (metric) {
             case 'pace':
@@ -496,7 +478,6 @@ async function createGoal() {
         }
     }
 
-    // Build unit string
     let unit = 'km';
     if (metric === 'pace') unit = 'min/km';
     else if (metric === 'speed') unit = 'km/h';
@@ -513,13 +494,11 @@ async function createGoal() {
         metric,
     };
 
-    // Store exercise name in goal_type for PR goals
     if (metric === 'pr') {
         const exercise = document.getElementById('goalExercise')?.value || '';
         data.goal_type = 'pr:' + exercise;
     }
 
-    // Store extra value (distance for pace goals)
     if (metric === 'pace') {
         const extra = document.getElementById('goalExtra')?.value;
         if (extra) data.goal_type = 'pace:' + extra;
@@ -536,7 +515,6 @@ async function deleteGoal(id) {
     loadGoals();
 }
 
-// Polyline decoder
 function decodePolyline(encoded) {
     const points = [];
     let index = 0, lat = 0, lng = 0;
@@ -567,7 +545,6 @@ async function showActivityDetail(id, isHevy) {
         const body = document.getElementById('dashDetailBody');
 
         if (isHevy) {
-            // Lifting detail (same as lifting page modal)
             const details = data.lifting_details || [];
             const totalVol = details.filter(d=>!d.is_warmup).reduce((s,d)=>s+(d.weight||0)*(d.reps||0),0);
             const grouped = {};
@@ -599,7 +576,6 @@ async function showActivityDetail(id, isHevy) {
             body.innerHTML = html;
             document.getElementById('dashDetailModal').classList.add('active');
         } else {
-            // Running / cardio detail
             const dist = data.distance ? (data.distance/1000).toFixed(2) : '—';
             const pace = (data.distance > 0 && data.moving_time > 0) ? (() => { const p = (data.moving_time/60)/(data.distance/1000); const m = Math.floor(p); const s = Math.round((p-m)*60); return `${m}:${String(s).padStart(2,'0')}`; })() : '—';
             const dur = data.moving_time ? (() => { const h=Math.floor(data.moving_time/3600); const m=Math.floor((data.moving_time%3600)/60); const s=data.moving_time%60; return h>0?`${h}h ${m}m`:`${m}m ${s}s`; })() : '—';
@@ -637,7 +613,6 @@ async function showActivityDetail(id, isHevy) {
                 </div>`;
             }
 
-            // 2x2 chart grid
             html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
                 <div><div class="label-caps" style="margin-bottom:8px;">Heart Rate</div><div style="height:160px;position:relative;"><canvas id="dashModalHR"></canvas></div></div>
                 <div><div class="label-caps" style="margin-bottom:8px;">Speed</div><div style="height:160px;position:relative;"><canvas id="dashModalSpeed"></canvas></div></div>
@@ -649,7 +624,6 @@ async function showActivityDetail(id, isHevy) {
             body.innerHTML = html;
             document.getElementById('dashDetailModal').classList.add('active');
 
-            // Render map after modal is visible
             if (data.map_polyline) {
                 setTimeout(() => {
                     if (dashMapInstance) { dashMapInstance.remove(); dashMapInstance = null; }
@@ -662,7 +636,6 @@ async function showActivityDetail(id, isHevy) {
                     if (coords.length) {
                         const polyline = L.polyline(coords, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(dashMapInstance);
                         dashMapInstance.fitBounds(polyline.getBounds(), { padding: [20, 20] });
-                        // Re-calculate after browser paint to fix zoom bug
                         setTimeout(() => {
                             dashMapInstance.invalidateSize();
                             dashMapInstance.fitBounds(polyline.getBounds(), { padding: [20, 20] });
@@ -671,7 +644,6 @@ async function showActivityDetail(id, isHevy) {
                 }, 300);
             }
 
-            // Fetch and render streams
             try {
                 const sRes = await fetch(`/api/activities/${id}/streams`);
                 const streams = await sRes.json();

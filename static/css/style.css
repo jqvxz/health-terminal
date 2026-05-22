@@ -253,7 +253,7 @@ h4 {
     flex: 1;
     margin-left: 240px;
     padding: 32px;
-    max-width: 1200px;
+    max-width: 1600px;
 }
 
 .page-header {
@@ -529,10 +529,10 @@ tr:hover td {
 
 .form-input {
     width: 100%;
-    padding: 10px 0;
+    padding: 10px 12px;
     background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--border-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     color: var(--text-primary);
     font-family: var(--font);
     font-size: 0.9375rem;
@@ -541,10 +541,26 @@ tr:hover td {
 }
 
 .form-input:focus {
-    border-bottom-color: var(--text-primary);
-    border: 1px solid var(--text-primary);
-    border-radius: var(--radius);
-    padding: 10px 12px;
+    border-color: var(--text-primary);
+}
+
+.form-input-sm {
+    width: 70px;
+    height: 30px;
+    padding: 5px 6px;
+    background: var(--bg-l2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 0.8125rem;
+    text-align: center;
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.form-input-sm:focus {
+    border-color: var(--accent);
 }
 
 select.form-input {
@@ -622,28 +638,42 @@ body[data-theme="white"] ::-webkit-calendar-picker-indicator {
 
 /* === MODAL === */
 .modal-overlay {
-    display: none;
+    display: flex;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.75);
     z-index: 1000;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modal-overlay.active {
-    display: flex;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .modal {
     background: var(--bg-l1);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 8px;
     width: 90%;
     max-width: 600px;
     max-height: 85vh;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(20px) scale(0.96);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    overflow: hidden;
+}
+
+.modal-overlay.active .modal {
+    transform: translateY(0) scale(1);
 }
 
 .modal-header {
@@ -656,6 +686,23 @@ body[data-theme="white"] ::-webkit-calendar-picker-indicator {
 
 .modal-body {
     padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-hover) var(--bg-l1);
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: var(--bg-l1);
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: var(--border-hover);
+    border-radius: 3px;
 }
 
 .modal-close {

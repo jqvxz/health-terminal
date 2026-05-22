@@ -1,0 +1,868 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Nutrition{% endblock %}
+
+{% block content %}
+<style>
+    .nutrition-container {
+        animation: fadeIn 0.4s ease-out;
+    }
+
+
+
+    .macro-progress-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.2s ease;
+    }
+
+    .macro-progress-card:hover {
+        border-color: var(--border-hover);
+        transform: translateY(-2px);
+    }
+
+    .macro-bar-container {
+        height: 6px;
+        background: var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 12px 0 8px 0;
+    }
+
+    .macro-bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        width: 0%;
+        transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .macro-bar-calories {
+        background: var(--text-primary);
+    }
+
+    .macro-bar-protein {
+        background: var(--accent);
+    }
+
+    .macro-bar-carbs {
+        background: #00D2FF;
+    }
+
+    .macro-bar-fats {
+        background: #FF9F00;
+    }
+
+    .interactive-log-section {
+        display: grid;
+        grid-template-columns: 1.8fr 1.2fr;
+        gap: 24px;
+    }
+
+    @media (max-width: 992px) {
+        .interactive-log-section {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .results-scroll {
+        max-height: 380px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-top: 12px;
+        background: var(--bg-l1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+    }
+
+    .search-result-item {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        transition: background 0.2s ease;
+    }
+
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .search-result-item:hover {
+        background: var(--bg-l2);
+    }
+
+    .lookup-card {
+        padding: 12px;
+        background: var(--bg-l2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-top: 12px;
+    }
+
+    .analysis-text {
+        font-family: var(--font);
+        white-space: pre-wrap;
+        line-height: 1.6;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .analysis-text table {
+        margin: 16px 0;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .analysis-text th {
+        background: var(--bg-l2);
+        padding: 8px 12px;
+        font-size: 0.75rem;
+    }
+
+    .analysis-text td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="nutrition-container">
+    <div class="page-header">
+        <h2>Nutrition Terminal</h2>
+        <p>Uncompromising bioavailable fuel tracking & metabolic optimization</p>
+    </div>
+
+    <div class="tab-group mb-24">
+        <button class="tab-btn active" id="btnLogTab" onclick="switchTab('log')">Daily Fuel Log</button>
+        <button class="tab-btn" id="btnScannerTab" onclick="switchTab('scanner')">AI Metabolic Health Scan</button>
+    </div>
+
+    <div id="logTab">
+        <div class="grid grid-4 mb-24">
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Calories</span>
+                    <span class="badge" id="calPercent">0%</span>
+                </div>
+                <div class="stat-value" id="calVal">0 <span class="stat-unit">/ 3000 kcal</span></div>
+                <div class="macro-bar-container">
+                    <div class="macro-bar-fill macro-bar-calories" id="calBar"></div>
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);" id="calRemaining">3000 kcal remaining</div>
+            </div>
+
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps" style="color: var(--accent);">Protein</span>
+                    <span class="badge badge-accent" id="protPercent">0%</span>
+                </div>
+                <div class="stat-value" id="protVal">0g <span class="stat-unit">/ 200g</span></div>
+                <div class="macro-bar-container">
+                    <div class="macro-bar-fill macro-bar-protein" id="protBar"></div>
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);" id="protRemaining">200g remaining</div>
+            </div>
+
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps" style="color: #00D2FF;">Carbs</span>
+                    <span class="badge" id="carbPercent"
+                        style="color:#00D2FF; background:rgba(0,210,255,0.08); border:none;">0%</span>
+                </div>
+                <div class="stat-value" id="carbVal">0g <span class="stat-unit">/ 250g</span></div>
+                <div class="macro-bar-container">
+                    <div class="macro-bar-fill macro-bar-carbs" id="carbBar"></div>
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);" id="carbRemaining">250g remaining</div>
+            </div>
+
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps" style="color: #FF9F00;">Fats</span>
+                    <span class="badge" id="fatPercent"
+                        style="color:#FF9F00; background:rgba(255,159,0,0.08); border:none;">0%</span>
+                </div>
+                <div class="stat-value" id="fatVal">0g <span class="stat-unit">/ 90g</span></div>
+                <div class="macro-bar-container">
+                    <div class="macro-bar-fill macro-bar-fats" id="fatBar"></div>
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);" id="fatRemaining">90g remaining</div>
+            </div>
+        </div>
+
+        <div class="interactive-log-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Today's Fuel Log</div>
+                    <button class="btn btn-ghost btn-sm" onclick="clearFuelLog()">Reset Log</button>
+                </div>
+                <div class="table-container">
+                    <table style="table-layout: fixed; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 65px;">Time</th>
+                                <th>Fuel Source</th>
+                                <th style="width: 85px;">Calories</th>
+                                <th style="width: 80px;">Protein</th>
+                                <th style="width: 80px;">Carbs</th>
+                                <th style="width: 80px;">Fat</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="fuelLogBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-16">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Log Food</div>
+                    </div>
+                    <div class="flex gap-8">
+                        <input type="text" class="form-input" id="smartSearchInput"
+                            placeholder="E.g., 50g protein powder, chicken breast, 3 eggs" style="flex:1;"
+                            onkeydown="if(event.key==='Enter') smartSearch()">
+                        <button class="btn btn-accent btn-sm" onclick="smartSearch()" id="smartSearchBtn"
+                            style="height: 38px;">Search</button>
+                    </div>
+
+                    <div id="smartRecommended" class="hidden" style="margin-top: 12px;">
+                    </div>
+
+                    <div id="smartAlternatives" class="results-scroll hidden" style="margin-top: 8px;">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Barcode Lookup</div>
+                    </div>
+                    <div class="flex gap-8">
+                        <input type="text" class="form-input" id="offBarcode" placeholder="E.g., 3017620422003"
+                            style="flex:1;" onkeydown="if(event.key==='Enter') lookupBarcode()">
+                        <button class="btn btn-primary btn-sm" onclick="lookupBarcode()"
+                            style="height: 38px;">Lookup</button>
+                    </div>
+                    <div id="offBarcodeResult" class="lookup-card hidden">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="scannerTab" class="hidden">
+
+        <div class="ai-box mb-24">
+            <div class="ai-label">
+                <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z" />
+                </svg>
+                Nemotron AI · Metabolic Health Scan
+            </div>
+
+            <div id="scanIdleMsg" class="ai-response" style="color: var(--text-secondary);">
+                Nemotron AI will biochemically audit today's logged food entries against metabolic markers,
+                Mifflin&#8209;St&nbsp;Jeor daily factors, sat&nbsp;fat profiles, and scan for any inflammatory
+                vegetable/seed oil contaminants or industrial soy substitutes.
+            </div>
+
+            <div id="scanReport" class="hidden">
+                <div class="flex justify-between items-center mb-16"
+                    style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-top: 4px;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.9375rem; color: var(--text-primary);"
+                            id="reportTitle">AI Metabolic Health Analysis</div>
+                        <div class="label-caps" style="margin-top: 3px; font-size: 0.625rem;">Nemotron Biochemical
+                            Review</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="label-caps" style="font-size: 0.5625rem; margin-bottom: 4px;">Fuel Rating</div>
+                        <span id="reportGrade" class="badge badge-accent"
+                            style="font-size: 1.25rem; padding: 6px 14px; font-weight: 800; line-height: 1;">A+</span>
+                    </div>
+                </div>
+
+                <div class="ai-response" id="reportText"></div>
+            </div>
+
+            <div class="flex justify-between items-center mt-16">
+                <button class="btn btn-accent btn-sm" onclick="runNemotronScan()" id="scanBtn">
+                    <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z" />
+                    </svg>
+                    Analyze Daily Intake
+                </button>
+                <div style="font-size: 0.75rem; color: var(--text-muted);" id="scanUsage"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // State
+    let dailyBudget = { calories: 3000, protein: 200, carbs: 250, fats: 90 };
+    let currentMacros = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+    let fuelLog = [];
+    let currentBarcodeResult = null;
+    let smartSearchResults = { results: [] };
+
+    // Helper to map backend sources to clean badges
+    function getSourceTag(source) {
+        if (source === 'local_database' || source === 'local') return 'Local DB';
+        if (source === 'openfoodfacts_fallback' || source === 'openfoodfacts') return 'OpenFoodFacts';
+        if (source === 'apininjas') return 'API Ninjas';
+        return source || 'Unknown';
+    }
+
+    // Fetch dynamic nutrition targets from backend
+    async function fetchDynamicTargets() {
+        try {
+            const res = await fetch('/api/nutrition/targets');
+            if (res.ok) {
+                const data = await res.json();
+                dailyBudget.calories = data.calories || 3000;
+                dailyBudget.protein = data.protein || 200;
+                dailyBudget.carbs = data.carbs || 250;
+                dailyBudget.fats = data.fats || 90;
+                recalcMacros();
+            }
+        } catch (e) {
+            console.error("Failed to load dynamic targets:", e);
+        }
+    }
+
+    async function fetchTodayFuelLog() {
+        try {
+            const res = await fetch('/api/nutrition/log');
+            if (res.ok) {
+                const data = await res.json();
+                fuelLog = data.map(item => ({
+                    id: item.id,
+                    time: item.log_time,
+                    name: item.name,
+                    cal: Math.round(item.calories),
+                    prot: Math.round(item.protein * 10) / 10,
+                    carb: Math.round(item.carbs * 10) / 10,
+                    fat: Math.round(item.fat * 10) / 10,
+                    tag: item.tag
+                }));
+                recalcMacros();
+            }
+        } catch (e) {
+            console.error("Failed to fetch today's fuel log:", e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await fetchDynamicTargets();
+        await fetchTodayFuelLog();
+    });
+
+    function switchTab(tab) {
+        document.getElementById('logTab').classList.toggle('hidden', tab !== 'log');
+        document.getElementById('scannerTab').classList.toggle('hidden', tab !== 'scanner');
+        document.getElementById('btnLogTab').classList.toggle('active', tab === 'log');
+        document.getElementById('btnScannerTab').classList.toggle('active', tab === 'scanner');
+    }
+
+    function recalcMacros() {
+        currentMacros = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+        fuelLog.forEach(f => {
+            currentMacros.calories += Number(f.cal || 0);
+            currentMacros.protein += Number(f.prot || 0);
+            currentMacros.carbs += Number(f.carb || 0);
+            currentMacros.fats += Number(f.fat || 0);
+        });
+        currentMacros.calories = Math.round(currentMacros.calories);
+        currentMacros.protein = Math.round(currentMacros.protein * 10) / 10;
+        currentMacros.carbs = Math.round(currentMacros.carbs * 10) / 10;
+        currentMacros.fats = Math.round(currentMacros.fats * 10) / 10;
+        updateUI();
+    }
+
+    async function addFuelItem(name, cal, prot, carb, fat, sourceTag) {
+        const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        try {
+            const res = await fetch('/api/nutrition/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    calories: Math.round(cal),
+                    protein: Math.round(prot * 10) / 10,
+                    carbs: Math.round(carb * 10) / 10,
+                    fat: Math.round(fat * 10) / 10,
+                    tag: sourceTag,
+                    time: timeNow
+                })
+            });
+            if (res.ok) {
+                await fetchTodayFuelLog();
+                showToast(`Logged ${name}`, 'success');
+            } else {
+                showToast('Failed to log fuel', 'error');
+            }
+        } catch (e) {
+            console.error("Failed to add fuel item:", e);
+            showToast('Failed to connect to server', 'error');
+        }
+    }
+
+    async function removeFuelEntry(logId) {
+        try {
+            const res = await fetch(`/api/nutrition/log/${logId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                showToast('Fuel entry removed', 'error');
+                await fetchTodayFuelLog();
+            } else {
+                showToast('Failed to remove entry', 'error');
+            }
+        } catch (e) {
+            console.error("Failed to remove entry:", e);
+            showToast('Failed to connect to server', 'error');
+        }
+    }
+
+    async function clearFuelLog() {
+        try {
+            const res = await fetch('/api/nutrition/log/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            if (res.ok) {
+                showToast('Intake log cleared', 'error');
+                await fetchTodayFuelLog();
+            } else {
+                showToast('Failed to clear log', 'error');
+            }
+        } catch (e) {
+            console.error("Failed to clear log:", e);
+            showToast('Failed to connect to server', 'error');
+        }
+    }
+
+    function updateUI() {
+        const tbody = document.getElementById('fuelLogBody');
+        if (fuelLog.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding: 24px 0;"><p>No fuel logged today. Feed your physical engine.</p></div></td></tr>`;
+        } else {
+            tbody.innerHTML = fuelLog.map((entry) => `
+                <tr class="fade-in">
+                    <td class="td-muted data-mono" style="white-space:nowrap;">${entry.time}</td>
+                    <td>
+                        <div style="font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${entry.name}">${entry.name}</div>
+                        ${entry.tag ? `<span class="badge mt-4" style="font-size:0.55rem; padding: 1px 4px;">${entry.tag}</span>` : ''}
+                    </td>
+                    <td class="data-mono" style="font-weight:600;">${entry.cal}</td>
+                    <td class="data-mono text-accent">${entry.prot}g</td>
+                    <td class="data-mono" style="color: #00D2FF;">${entry.carb}g</td>
+                    <td class="data-mono" style="color: #FF9F00;">${entry.fat}g</td>
+                    <td>
+                        <button class="btn-ghost btn-sm" style="border:none;background:none;color:var(--text-muted);cursor:pointer;padding:0;font-size:1.125rem;" onclick="removeFuelEntry(${entry.id})">×</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        updateCard('cal', currentMacros.calories, dailyBudget.calories, ' kcal');
+        updateCard('prot', currentMacros.protein, dailyBudget.protein, 'g');
+        updateCard('carb', currentMacros.carbs, dailyBudget.carbs, 'g');
+        updateCard('fat', currentMacros.fats, dailyBudget.fats, 'g');
+    }
+
+    function updateCard(id, current, budget, unit) {
+        const pct = Math.min(100, Math.round((current / budget) * 100));
+        document.getElementById(`${id}Val`).innerHTML = `${current}${unit} <span class="stat-unit">/ ${budget}${unit}</span>`;
+        document.getElementById(`${id}Percent`).textContent = `${pct}%`;
+        document.getElementById(`${id}Bar`).style.width = `${pct}%`;
+        const rem = budget - current;
+        const remEl = document.getElementById(`${id}Remaining`);
+        if (rem > 0) {
+            remEl.textContent = `${Math.round(rem)}${unit} remaining`;
+            remEl.style.color = 'var(--text-secondary)';
+        } else {
+            remEl.textContent = `Surplus: +${Math.round(Math.abs(rem))}${unit}`;
+            remEl.style.color = id === 'prot' ? 'var(--accent)' : '#FF4444';
+        }
+    }
+
+    // ========== UNIFIED SMART SEARCH (MULTI-ITEM SUPPORT) ==========
+    async function smartSearch() {
+        const input = document.getElementById('smartSearchInput');
+        const query = input.value.trim();
+        const btn = document.getElementById('smartSearchBtn');
+        const recBox = document.getElementById('smartRecommended');
+        const altBox = document.getElementById('smartAlternatives');
+
+        if (!query) {
+            showToast('Enter a food name to search', 'error');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;"></span>';
+        recBox.innerHTML = '<div style="padding:16px; text-align:center;"><span class="spinner" style="display:inline-block;width:16px;height:16px;"></span> Searching all sources...</div>';
+        recBox.classList.remove('hidden');
+        altBox.classList.add('hidden'); // Legacy alternatives container hidden in favor of inline grouped lists
+
+        try {
+            const res = await fetch('/api/nutrition/smart-search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+            const data = await res.json();
+            smartSearchResults = data;
+
+            if (data.results && data.results.length > 0) {
+                recBox.innerHTML = data.results.map((resItem, resIdx) => {
+                    const hasRec = !!resItem.recommended;
+                    const sourceTag = hasRec ? getSourceTag(resItem.recommended.source) : '';
+                    const alternatives = resItem.alternatives || [];
+
+                    return `
+                    <div class="search-result-group" id="search-group-${resIdx}" style="border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 16px; background: var(--bg-l1); transition: all 0.3s ease;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700;">Query: "${resItem.query}"</span>
+                            <span id="logged-status-${resIdx}" class="hidden" style="color: var(--accent); font-size: 0.75rem; font-weight: 600;">✓ Logged</span>
+                        </div>
+                        
+                        ${hasRec ? `
+                        <div class="best-match-card" id="best-card-${resIdx}" style="background: rgba(191,255,0,0.02); border: 1px solid rgba(191,255,0,0.15); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px;">
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                            <span class="badge badge-accent" style="font-size: 0.55rem; padding: 1px 4px;">BEST MATCH</span>
+                                            <span class="badge" style="font-size: 0.55rem; padding: 1px 4px;">${sourceTag}</span>
+                                        </div>
+                                        <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary); margin-top: 6px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${resItem.recommended.name}">${resItem.recommended.name}</div>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                        <input type="number" class="form-input-sm" id="recGrams-${resIdx}" value="${Math.round(resItem.quantity)}" min="1" style="width: 70px;" oninput="updateRecommendedMacros(${resIdx})">
+                                        <span style="font-size: 0.75rem; color: var(--text-secondary);">${resItem.unit}</span>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; margin-top: 4px;">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                        <span id="recCal-${resIdx}">${resItem.recommended.calories}</span> kcal · 
+                                        P: <span class="text-accent" id="recProt-${resIdx}">${resItem.recommended.protein}g</span> · 
+                                        C: <span style="color:#00D2FF;" id="recCarb-${resIdx}">${resItem.recommended.carbs}g</span> · 
+                                        F: <span style="color:#FF9F00;" id="recFat-${resIdx}">${resItem.recommended.fat}g</span>
+                                    </div>
+                                    <button class="btn btn-accent btn-sm" style="height: 28px; padding: 0 12px; font-size: 0.7rem; flex-shrink: 0;" onclick="logRecommended(${resIdx})">Log Fuel</button>
+                                </div>
+                            </div>
+                        </div>
+                        ` : `
+                        <div style="padding: 12px; text-align: center; color: var(--text-secondary); font-size: 0.8125rem; border: 1px dashed var(--border); border-radius: var(--radius-sm); margin-bottom: 12px;">No specific match found. See database alternatives below.</div>
+                        `}
+
+                        ${alternatives.length > 0 ? `
+                        <details style="margin-top: 8px;">
+                            <summary style="font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none; font-weight: 500; display: flex; align-items: center; gap: 4px; padding: 4px 0;">
+                                <span>Product Database Alternatives (${alternatives.length})</span>
+                            </summary>
+                            <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 8px; background: var(--bg-l2);">
+                                ${alternatives.map((alt, altIdx) => {
+                        const displayName = (alt.name && alt.name.trim() && alt.name !== 'Unknown Product') ? alt.name : (alt.brand && alt.brand.trim() && alt.brand !== 'Generic' ? alt.brand : 'Unnamed Product');
+                        const displayBrand = (alt.name && alt.name.trim() && alt.name !== 'Unknown Product') ? (alt.brand || 'Generic') : 'Generic Product';
+                        return `
+                                    <div class="search-result-item" style="padding: 8px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.8125rem;">
+                                        <div style="flex:1; min-width:0;">
+                                            <div style="font-weight:600; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${displayName}">${displayName}</div>
+                                            <div class="label-caps" style="font-size:0.55rem; color:var(--text-muted); margin-top:2px;">${displayBrand} · ${alt.calories_100g} kcal/100g</div>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                                            <input type="number" class="form-input-sm" id="altGrams-${resIdx}-${altIdx}" value="100" min="1" style="width: 55px;">
+                                            <span style="font-size:0.7rem; color:var(--text-secondary);">g</span>
+                                            <button class="btn btn-primary btn-sm" style="height:26px; padding:0 8px; font-size:0.65rem;" onclick="logAlternative(${resIdx}, ${altIdx})">Log</button>
+                                        </div>
+                                    </div>`;
+                    }).join('')}
+                            </div>
+                        </details>
+                        ` : ''}
+                    </div>`;
+                }).join('');.join('');
+                recBox.classList.remove('hidden');
+            } else {
+                recBox.innerHTML = '<div style="padding:14px; text-align:center; color:var(--text-secondary); font-size:0.8125rem;">No matches found for this query.</div>';
+                recBox.classList.remove('hidden');
+            }
+
+        } catch (e) {
+            recBox.innerHTML = '<div style="padding:14px; text-align:center; color:var(--danger); font-size:0.8125rem;">Search failed. Try again.</div>';
+            recBox.classList.remove('hidden');
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Search';
+    }
+
+    function updateRecommendedMacros(resIdx) {
+        const res = smartSearchResults.results[resIdx];
+        if (!res || !res.recommended) return;
+        const inputVal = Number(document.getElementById(`recGrams-${resIdx}`).value) || 0;
+        const factor = res.quantity > 0 ? (inputVal / res.quantity) : 1;
+
+        document.getElementById(`recCal-${resIdx}`).textContent = Math.round(res.recommended.calories * factor);
+        document.getElementById(`recProt-${resIdx}`).textContent = (Math.round(res.recommended.protein * factor * 10) / 10) + 'g';
+        document.getElementById(`recCarb-${resIdx}`).textContent = (Math.round(res.recommended.carbs * factor * 10) / 10) + 'g';
+        document.getElementById(`recFat-${resIdx}`).textContent = (Math.round(res.recommended.fat * factor * 10) / 10) + 'g';
+    }
+
+    function logRecommended(resIdx) {
+        const res = smartSearchResults.results[resIdx];
+        if (!res || !res.recommended) return;
+
+        const inputVal = Number(document.getElementById(`recGrams-${resIdx}`).value) || res.quantity;
+        const factor = res.quantity > 0 ? (inputVal / res.quantity) : 1;
+
+        const cal = Math.round(res.recommended.calories * factor);
+        const prot = Math.round(res.recommended.protein * factor * 10) / 10;
+        const carb = Math.round(res.recommended.carbs * factor * 10) / 10;
+        const fat = Math.round(res.recommended.fat * factor * 10) / 10;
+
+        let displayGrams = `${inputVal}${res.unit}`;
+        let cleanName = res.recommended.name;
+        if (/^\d+(?:\.\d+)?\s*(?:g|ml|egg|eggs)\b/i.test(cleanName)) {
+            cleanName = cleanName.replace(/^\d+(?:\.\d+)?\s*(?:g|ml|egg|eggs)\s*/i, '');
+        }
+        const loggedName = `${displayGrams} ${cleanName}`;
+
+        addFuelItem(loggedName, cal, prot, carb, fat, getSourceTag(res.recommended.source));
+
+        // Visually fade this search result group
+        const groupEl = document.getElementById(`search-group-${resIdx}`);
+        if (groupEl) {
+            groupEl.style.opacity = '0.35';
+            groupEl.style.pointerEvents = 'none';
+        }
+        const statusEl = document.getElementById(`logged-status-${resIdx}`);
+        if (statusEl) {
+            statusEl.classList.remove('hidden');
+        }
+    }
+
+    function logAlternative(resIdx, altIdx) {
+        const res = smartSearchResults.results[resIdx];
+        if (!res) return;
+        const item = res.alternatives[altIdx];
+        if (!item) return;
+
+        const grams = Number(document.getElementById(`altGrams-${resIdx}-${altIdx}`).value) || 100;
+        const factor = grams / 100;
+        const cal = item.calories_100g * factor;
+        const prot = item.protein_100g * factor;
+        const carb = item.carbs_100g * factor;
+        const fat = item.fat_100g * factor;
+
+        const displayName = (item.name && item.name.trim() && item.name !== 'Unknown Product') ? item.name : (item.brand && item.brand.trim() && item.brand !== 'Generic' ? item.brand : 'Unnamed Product');
+
+        addFuelItem(`${displayName} (${grams}g)`, cal, prot, carb, fat, 'OpenFoodFacts');
+
+        // Visually fade this search result group
+        const groupEl = document.getElementById(`search-group-${resIdx}`);
+        if (groupEl) {
+            groupEl.style.opacity = '0.35';
+            groupEl.style.pointerEvents = 'none';
+        }
+        const statusEl = document.getElementById(`logged-status-${resIdx}`);
+        if (statusEl) {
+            statusEl.classList.remove('hidden');
+        }
+    }
+
+    // Barcode Lookup
+    async function lookupBarcode() {
+        const barcode = document.getElementById('offBarcode').value.trim();
+        const resultBox = document.getElementById('offBarcodeResult');
+
+        if (!barcode) {
+            showToast('Enter a product barcode first', 'error');
+            return;
+        }
+
+        resultBox.innerHTML = '<div style="text-align:center;"><span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Looking up barcode...</div>';
+        resultBox.classList.remove('hidden');
+
+        try {
+            const res = await fetch(`/api/nutrition/barcode/${barcode}`);
+            if (!res.ok) {
+                const err = await res.json();
+                resultBox.innerHTML = `<div style="color:var(--danger);font-size:0.8125rem;">${err.error || 'Product not found.'}</div>`;
+                return;
+            }
+
+            const item = await res.json();
+            currentBarcodeResult = item;
+
+            const displayName = (item.name && item.name.trim() && item.name !== 'Unknown Product') ? item.name : (item.brand && item.brand.trim() && item.brand !== 'Generic' ? item.brand : 'Unnamed Product');
+            const displayBrand = (item.name && item.name.trim() && item.name !== 'Unknown Product') ? (item.brand || 'Generic') : 'Generic Product';
+
+            resultBox.innerHTML = `
+                <div style="font-weight:600; font-size:0.875rem; color:var(--text-primary);">${displayName}</div>
+                <div class="label-caps" style="color:var(--text-muted); font-size:0.6rem; margin-top:4px;">${displayBrand}</div>
+                <div class="grid grid-4 mt-12" style="font-size:0.75rem; color:var(--text-secondary); background:var(--bg-l1); padding: 8px; border-radius:var(--radius-sm); border:1px solid var(--border);">
+                    <div>Cal: <strong style="color:var(--text-primary);">${item.calories_100g}</strong>/100g</div>
+                    <div>P: <strong class="text-accent">${item.protein_100g}g</strong></div>
+                    <div>C: <strong style="color:#00D2FF;">${item.carbs_100g}g</strong></div>
+                    <div>F: <strong style="color:#FF9F00;">${item.fat_100g}g</strong></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:16px; justify-content:flex-end;">
+                    <div style="font-size:0.75rem; color:var(--text-secondary);">Amount:</div>
+                    <input type="number" class="form-input-sm" id="bcGrams" value="100" min="1">
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">g</span>
+                    <button class="btn btn-accent btn-sm" style="height:30px; padding:0 12px; font-size:0.75rem;" onclick="addBarcodeProduct()">Log Fuel</button>
+                </div>
+            `;
+
+        } catch (e) {
+            resultBox.innerHTML = '<div style="color:var(--danger);font-size:0.8125rem;">Failed to fetch barcode info.</div>';
+        }
+    }
+
+    function addBarcodeProduct() {
+        const grams = Number(document.getElementById('bcGrams').value) || 100;
+        const item = currentBarcodeResult;
+        const factor = grams / 100;
+        const cal = item.calories_100g * factor;
+        const prot = item.protein_100g * factor;
+        const carb = item.carbs_100g * factor;
+        const fat = item.fat_100g * factor;
+        const displayName = (item.name && item.name.trim() && item.name !== 'Unknown Product') ? item.name : (item.brand && item.brand.trim() && item.brand !== 'Generic' ? item.brand : 'Unnamed Product');
+        addFuelItem(`${displayName} (${grams}g)`, cal, prot, carb, fat, 'Barcode');
+        document.getElementById('offBarcode').value = '';
+        document.getElementById('offBarcodeResult').classList.add('hidden');
+    }
+
+    // Nemotron AI Metabolic Scan
+    async function runNemotronScan() {
+        if (!fuelLog.length) {
+            showToast('Add some foods to your daily log first!', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('scanBtn');
+        const report = document.getElementById('scanReport');
+        const idleMsg = document.getElementById('scanIdleMsg');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+        idleMsg.style.color = 'var(--text-secondary)';
+        idleMsg.textContent = 'Initializing metabolic alignment engine...';
+        report.classList.add('hidden');
+
+        const statuses = [
+            "Initializing metabolic alignment engine...",
+            "Loading biometric Mifflin-St Jeor data...",
+            "Checking ingredients for seed/vegetable oil contaminants...",
+            "Auditing protein bioavailability ratings...",
+            "Consulting Nemotron AI review matrix..."
+        ];
+
+        let statusIdx = 0;
+        const statusInterval = setInterval(() => {
+            statusIdx = (statusIdx + 1) % statuses.length;
+            idleMsg.textContent = statuses[statusIdx];
+        }, 1500);
+
+        try {
+            const res = await fetch('/api/nutrition/health-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ foods: fuelLog })
+            });
+
+            clearInterval(statusInterval);
+
+            if (!res.ok) {
+                const err = await res.json();
+                idleMsg.style.color = 'var(--text-secondary)';
+                idleMsg.textContent = 'Nemotron AI will biochemically audit today\u2019s logged food entries against metabolic markers, Mifflin\u2011St\u00a0Jeor daily factors, sat\u00a0fat profiles, and scan for any inflammatory vegetable/seed oil contaminants or industrial soy substitutes.';
+                showToast(err.error || 'AI scan failed.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg> Analyze Daily Intake';
+                return;
+            }
+
+            const data = await res.json();
+
+            const rGrade = document.getElementById('reportGrade');
+            rGrade.textContent = data.grade;
+
+            if (data.grade.startsWith('A')) {
+                rGrade.className = 'badge badge-accent';
+                rGrade.style.color = '';
+                rGrade.style.borderColor = '';
+            } else if (data.grade.startsWith('B') || data.grade.startsWith('C')) {
+                rGrade.className = 'badge';
+                rGrade.style.color = 'var(--warning)';
+                rGrade.style.borderColor = 'var(--warning)';
+            } else {
+                rGrade.className = 'badge badge-danger';
+                rGrade.style.color = '';
+                rGrade.style.borderColor = '';
+            }
+
+            let formattedHtml;
+            if (typeof formatAI === 'function') {
+                formattedHtml = formatAI(data.analysis);
+            } else {
+                formattedHtml = data.analysis
+                    .replace(/^### (.+)$/gm, '<h4 style="margin: 16px 0 6px; color:var(--text-primary); font-size:0.875rem; font-weight:700;">$1</h4>')
+                    .replace(/^## (.+)$/gm, '<h3 style="margin: 20px 0 8px; color:var(--text-primary);">$1</h3>')
+                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                    .replace(/^- (.+)$/gm, '<li style="margin-left: 18px; margin-bottom: 5px; line-height:1.5;">$1</li>')
+                    .replace(/\n{2,}/g, '<br><br>')
+                    .replace(/\n/g, '<br>');
+            }
+
+            document.getElementById('reportText').innerHTML = formattedHtml;
+            idleMsg.textContent = '';
+            report.classList.remove('hidden');
+
+            try {
+                const uRes = await fetch('/api/ai/usage');
+                const uData = await uRes.json();
+                document.getElementById('scanUsage').textContent = `${uData.used}/${uData.limit} requests today`;
+            } catch (e) { }
+
+            showToast('Metabolic scan completed!', 'success');
+
+        } catch (e) {
+            clearInterval(statusInterval);
+            idleMsg.style.color = 'var(--text-secondary)';
+            idleMsg.textContent = 'Nemotron AI will biochemically audit today\u2019s logged food entries against metabolic markers, Mifflin\u2011St\u00a0Jeor daily factors, sat\u00a0fat profiles, and scan for any inflammatory vegetable/seed oil contaminants or industrial soy substitutes.';
+            showToast('Failed to connect to OpenRouter AI.', 'error');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg> Analyze Daily Intake';
+    }
+</script>
+{% endblock %}

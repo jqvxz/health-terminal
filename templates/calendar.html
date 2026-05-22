@@ -2,40 +2,258 @@
 {% block title_suffix %} — Calendar{% endblock %}
 
 {% block content %}
+<style>
+    .cal-dot.fuel {
+        background: #00D2FF;
+    }
+
+    .cal-dots .cal-dot {
+        position: static;
+    }
+    
+    .cal-card-container {
+        padding: 20px;
+    }
+    
+    .cal-grid {
+        gap: 6px !important;
+    }
+
+    .cal-day {
+        height: 80px !important;
+        background: var(--bg-l1);
+        border: 1px solid var(--border) !important;
+        border-radius: 6px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .cal-day:hover:not(.empty) {
+        transform: translateY(-2px);
+        border-color: var(--text-secondary) !important;
+        background: var(--bg-l2) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .cal-day.today {
+        border-color: var(--accent) !important;
+        border-width: 1.5px !important;
+        box-shadow: 0 0 12px var(--accent-dim) !important;
+        font-weight: 700;
+    }
+
+    .cal-day.has-activity {
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+
+    .cal-legend-item {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: 4px;
+        transition: all var(--transition);
+    }
+    
+    .cal-legend-item:hover {
+        border-color: var(--border-hover);
+    }
+    
+    .cal-btn-group {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg-l1);
+        overflow: hidden;
+    }
+    
+    .cal-btn-group button {
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 6px 14px !important;
+    }
+    
+    .cal-btn-group button:not(:last-child) {
+        border-right: 1px solid var(--border) !important;
+    }
+
+    .act-mini-card {
+        background: var(--bg-l2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 14px;
+        margin-bottom: 12px;
+        transition: border-color var(--transition);
+    }
+
+    .act-mini-card:hover {
+        border-color: var(--border-hover);
+    }
+
+    .act-metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .act-metric-box {
+        text-align: center;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 6px 4px;
+    }
+
+    .act-metric-val {
+        font-family: var(--font);
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .act-metric-lbl {
+        font-size: 0.5625rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        margin-top: 2px;
+    }
+
+    .macro-progress-container {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 8px;
+    }
+
+    .macro-progress-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .macro-progress-track {
+        height: 6px;
+        background: var(--bg-l2);
+        border-radius: 3px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .macro-progress-bar {
+        height: 100%;
+        border-radius: 3px;
+        width: 0%;
+        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .macro-progress-bar.cal { background: var(--text-primary); }
+    .macro-progress-bar.prot { background: var(--accent); }
+    .macro-progress-bar.carb { background: #00D2FF; }
+    .macro-progress-bar.fat { background: #FF9F00; }
+
+    .fuel-summary-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+    }
+
+    .fuel-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .fuel-metric {
+        text-align: center;
+        background: var(--bg-l2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 8px 4px;
+    }
+
+    .fuel-metric-val {
+        font-family: var(--font);
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .fuel-metric-label {
+        font-size: 0.625rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        margin-top: 2px;
+    }
+
+    .fuel-items-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8125rem;
+    }
+
+    .fuel-items-table th {
+        text-align: left;
+        color: var(--text-muted);
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .fuel-items-table td {
+        padding: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .fuel-items-table tr:last-child td {
+        border-bottom: none;
+    }
+</style>
+
 <div class="page-header">
-    <div class="flex justify-between items-center">
-        <div><h2>Activity Calendar</h2><p>Your training schedule overview</p></div>
-        <div class="flex gap-8 items-center">
-            <button class="btn btn-ghost btn-sm" onclick="changeMonth(-1)">← Prev</button>
-            <span class="data-md" id="calMonthLabel"></span>
-            <button class="btn btn-ghost btn-sm" onclick="changeMonth(1)">Next →</button>
+    <div class="flex justify-between items-center flex-wrap gap-12">
+        <div>
+            <h2>Activity & Fuel Calendar</h2>
+            <p>Your training and nutrition history schedule</p>
+        </div>
+        <div class="flex gap-12 items-center">
+            <span class="data-md" id="calMonthLabel" style="font-weight: 700; min-width: 140px; text-align: center;"></span>
+            <div class="cal-btn-group">
+                <button class="btn btn-ghost btn-sm" onclick="changeMonth(-1)" title="Previous Month">← Prev</button>
+                <button class="btn btn-ghost btn-sm" onclick="jumpToToday()" title="Current Month">Today</button>
+                <button class="btn btn-ghost btn-sm" onclick="changeMonth(1)" title="Next Month">Next →</button>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Legend -->
-<div class="flex gap-16 mb-16 items-center">
-    <div class="flex items-center gap-8"><span class="cal-dot run" style="position:static;"></span><span class="label-caps">Running</span></div>
-    <div class="flex items-center gap-8"><span class="cal-dot lift" style="position:static;"></span><span class="label-caps">Lifting</span></div>
-    <div class="flex items-center gap-8"><span class="cal-dot other" style="position:static;"></span><span class="label-caps">Other</span></div>
+<div class="flex gap-16 mb-24 items-center flex-wrap">
+    <div class="flex items-center gap-8 cal-legend-item"><span class="cal-dot run" style="position:static;"></span><span class="label-caps" style="font-size: 0.6875rem;">Running</span></div>
+    <div class="flex items-center gap-8 cal-legend-item"><span class="cal-dot lift" style="position:static;"></span><span class="label-caps" style="font-size: 0.6875rem;">Lifting</span></div>
+    <div class="flex items-center gap-8 cal-legend-item"><span class="cal-dot other" style="position:static;"></span><span class="label-caps" style="font-size: 0.6875rem;">Other</span></div>
+    <div class="flex items-center gap-8 cal-legend-item"><span class="cal-dot fuel" style="position:static;"></span><span class="label-caps" style="font-size: 0.6875rem;">Fuel Logged</span></div>
 </div>
 
-<!-- Calendar -->
-<div class="card mb-24">
-    <div class="cal-grid">
+<div class="card mb-24 cal-card-container">
+    <div class="cal-grid" style="margin-bottom: 4px;">
         <div class="cal-header">Mon</div><div class="cal-header">Tue</div><div class="cal-header">Wed</div>
-        <div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div><div class="cal-header">Sun</div>
+        <div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header" style="color: var(--text-muted);">Sat</div><div class="cal-header" style="color: var(--text-muted);">Sun</div>
     </div>
     <div class="cal-grid" id="calGrid"></div>
 </div>
 
-<!-- Day Detail -->
-<div class="card hidden" id="dayDetail">
-    <div class="card-header">
-        <div class="card-title" id="dayDetailTitle">Activities</div>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dayDetail').classList.add('hidden')">Close</button>
+<div id="dayModal" class="modal-overlay" onclick="handleOutsideClick(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalTitle">Details</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
     </div>
-    <div id="dayDetailBody"></div>
 </div>
 {% endblock %}
 
@@ -45,14 +263,35 @@ let calYear, calMonth;
 const today = new Date();
 calYear = today.getFullYear();
 calMonth = today.getMonth();
+let nutritionTargets = null;
 
-document.addEventListener('DOMContentLoaded', renderCalendar);
+document.addEventListener('DOMContentLoaded', () => {
+    loadTargets();
+    renderCalendar();
+});
 
 function changeMonth(dir) {
     calMonth += dir;
     if (calMonth < 0) { calMonth = 11; calYear--; }
     if (calMonth > 11) { calMonth = 0; calYear++; }
     renderCalendar();
+}
+
+function jumpToToday() {
+    calYear = today.getFullYear();
+    calMonth = today.getMonth();
+    renderCalendar();
+}
+
+async function loadTargets() {
+    try {
+        const res = await fetch('/api/nutrition/targets');
+        if (res.ok) {
+            nutritionTargets = await res.json();
+        }
+    } catch(e) {
+        console.error("Failed to load targets:", e);
+    }
 }
 
 async function renderCalendar() {
@@ -64,12 +303,18 @@ async function renderCalendar() {
     const end = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${daysInMonth}`;
 
     let activities = [];
+    let foodLogs = [];
     try {
-        const res = await fetch(`/api/activities?start_date=${start}&end_date=${end}T23:59:59&limit=200`);
-        activities = await res.json();
-    } catch(e) {}
+        const [actRes, foodRes] = await Promise.all([
+            fetch(`/api/activities?start_date=${start}&end_date=${end}T23:59:59&limit=200`),
+            fetch(`/api/nutrition/log?start_date=${start}&end_date=${end}`)
+        ]);
+        if (actRes.ok) activities = await actRes.json();
+        if (foodRes.ok) foodLogs = await foodRes.json();
+    } catch(e) {
+        console.error("Failed to load calendar history:", e);
+    }
 
-    // Group by day
     const dayMap = {};
     activities.forEach(a => {
         const day = (a.start_date_local || '').substring(8, 10);
@@ -78,78 +323,279 @@ async function renderCalendar() {
         dayMap[d].push(a);
     });
 
-    // Build grid
+    const foodMap = {};
+    foodLogs.forEach(f => {
+        const day = (f.log_date || '').substring(8, 10);
+        const d = parseInt(day);
+        if (!foodMap[d]) foodMap[d] = [];
+        foodMap[d].push(f);
+    });
+
     const firstDay = new Date(calYear, calMonth, 1).getDay();
-    const offset = firstDay === 0 ? 6 : firstDay - 1; // Monday-first
+    const offset = firstDay === 0 ? 6 : firstDay - 1;
     const todayDate = today.getDate();
     const isCurrentMonth = calYear === today.getFullYear() && calMonth === today.getMonth();
 
     let html = '';
-    // Empty cells before first day
     for (let i = 0; i < offset; i++) html += '<div class="cal-day empty"></div>';
 
     for (let d = 1; d <= daysInMonth; d++) {
         const isToday = isCurrentMonth && d === todayDate;
         const acts = dayMap[d] || [];
+        const foods = foodMap[d] || [];
         const hasRun = acts.some(a => ['Run','VirtualRun','TrailRun'].includes(a.activity_type));
         const hasLift = acts.some(a => a.is_hevy);
         const hasOther = acts.some(a => !a.is_hevy && !['Run','VirtualRun','TrailRun'].includes(a.activity_type));
-        const count = acts.length;
+        const hasFuel = foods.length > 0;
+        const actCount = acts.length;
 
         let dots = '';
-        if (acts.length) {
+        if (actCount || hasFuel) {
             dots = '<div class="cal-dots">';
             if (hasRun) dots += '<div class="cal-dot run"></div>';
             if (hasLift) dots += '<div class="cal-dot lift"></div>';
             if (hasOther) dots += '<div class="cal-dot other"></div>';
+            if (hasFuel) dots += '<div class="cal-dot fuel"></div>';
             dots += '</div>';
         }
 
-        const countBadge = count > 1 ? `<span style="position:absolute;top:2px;right:4px;font-size:0.5625rem;color:var(--accent);font-weight:700;">${count}</span>` : '';
+        const countBadge = actCount > 1 ? `<span style="position:absolute;top:2px;right:4px;font-size:0.5625rem;color:var(--accent);font-weight:700;">${actCount}</span>` : '';
 
-        // Tooltip
-        let title = '';
+        let tooltipTitle = '';
+        const tooltipParts = [];
         if (acts.length) {
-            title = acts.map(a => {
+            const actTitles = acts.map(a => {
                 const type = a.is_hevy ? 'Lifting' : a.activity_type;
                 const dur = a.moving_time ? Math.round(a.moving_time/60)+'min' : '';
                 return `${type} ${dur}`;
             }).join(' | ');
+            tooltipParts.push(actTitles);
         }
+        if (hasFuel) {
+            const totCal = Math.round(foods.reduce((acc, curr) => acc + curr.calories, 0));
+            tooltipParts.push(`Fuel: ${totCal} kcal`);
+        }
+        tooltipTitle = tooltipParts.join(' | ');
 
-        html += `<div class="cal-day ${isToday?'today':''} ${acts.length ? 'has-activity' : ''}" onclick="showDayDetail(${d})" title="${title}">
+        const hasAnyData = acts.length > 0 || foods.length > 0;
+
+        html += `<div class="cal-day ${isToday?'today':''} ${hasAnyData ? 'has-activity' : ''}" onclick="showDayDetail(${d})" title="${tooltipTitle}">
             ${countBadge}${d}${dots}
         </div>`;
     }
 
     document.getElementById('calGrid').innerHTML = html;
     window._calActivities = dayMap;
+    window._calFoods = foodMap;
 }
 
 function showDayDetail(day) {
     const acts = window._calActivities[day] || [];
-    if (!acts.length) return;
+    const foods = window._calFoods[day] || [];
 
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    document.getElementById('dayDetailTitle').textContent = `${months[calMonth]} ${day}, ${calYear} — ${acts.length} activit${acts.length>1?'ies':'y'}`;
+    const fullMonths = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    
+    const dateObj = new Date(calYear, calMonth, day);
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayName = daysOfWeek[dateObj.getDay()];
+    
+    document.getElementById('modalTitle').textContent = `${dayName} · ${fullMonths[calMonth]} ${day}, ${calYear}`;
 
-    const body = document.getElementById('dayDetailBody');
-    body.innerHTML = acts.map(a => {
-        const type = a.is_hevy ? '<span class="badge badge-accent">LIFT</span>' : `<span class="badge">${a.activity_type||'Activity'}</span>`;
-        const dur = a.moving_time ? Math.round(a.moving_time/60)+'min' : '';
-        const dist = a.distance ? (a.distance/1000).toFixed(1)+'km' : '';
-        const cal = a.calories ? Math.round(a.calories)+'kcal' : '';
-        const hr = a.average_heartrate ? Math.round(a.average_heartrate)+'bpm' : '';
-        const metrics = [dur, dist, cal, hr].filter(Boolean).join(' · ');
-        return `<div style="padding:12px 0;border-bottom:1px solid var(--border);">
-            <div class="flex justify-between items-center">
-                <div style="font-weight:500;">${a.name || 'Activity'}</div>
-                ${type}
+    const body = document.getElementById('modalBody');
+    let htmlContent = '';
+
+    htmlContent += `<div style="margin-bottom: 24px;">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 14px;">Logged Activities</div>`;
+    
+    if (acts.length > 0) {
+        htmlContent += acts.map(a => {
+            const isHevy = !!a.is_hevy;
+            const badgeType = isHevy ? '<span class="badge badge-accent">LIFT</span>' : `<span class="badge">${a.activity_type||'Activity'}</span>`;
+            
+            const dur = a.moving_time ? Math.round(a.moving_time/60)+'m' : '--';
+            const dist = a.distance ? (a.distance/1000).toFixed(1)+'km' : '--';
+            const cal = a.calories ? Math.round(a.calories)+'kcal' : '--';
+            const hr = a.average_heartrate ? Math.round(a.average_heartrate)+'bpm' : '--';
+            
+            return `
+            <div class="act-mini-card">
+                <div class="flex justify-between items-center">
+                    <div style="font-weight:600; font-size:0.875rem; color:var(--text-primary);">${a.name || 'Activity'}</div>
+                    ${badgeType}
+                </div>
+                <div class="act-metric-grid">
+                    <div class="act-metric-box">
+                        <div class="act-metric-val">${dur}</div>
+                        <div class="act-metric-lbl">Duration</div>
+                    </div>
+                    <div class="act-metric-box">
+                        <div class="act-metric-val">${dist}</div>
+                        <div class="act-metric-lbl">Distance</div>
+                    </div>
+                    <div class="act-metric-box">
+                        <div class="act-metric-val">${cal}</div>
+                        <div class="act-metric-lbl">Calories</div>
+                    </div>
+                    <div class="act-metric-box">
+                        <div class="act-metric-val">${hr}</div>
+                        <div class="act-metric-lbl">Heart Rate</div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } else {
+        htmlContent += `
+        <div style="font-size: 0.8125rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--radius); padding: 16px; text-align: center;">
+            No training activities logged.
+            <div style="margin-top: 10px;">
+                <a href="/running" class="btn btn-ghost btn-sm" style="font-size: 0.6875rem; padding: 2px 8px; border: 1px solid var(--border);">Log Running</a>
+                <a href="/lifting" class="btn btn-ghost btn-sm" style="font-size: 0.6875rem; padding: 2px 8px; border: 1px solid var(--border);">Log Lifting</a>
             </div>
-            <div class="label-caps mt-8">${metrics}</div>
         </div>`;
-    }).join('');
-    document.getElementById('dayDetail').classList.remove('hidden');
+    }
+    
+    htmlContent += `</div>`;
+
+    htmlContent += `<div style="margin-bottom: 8px;">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 14px;">Nutrition & Daily Fuel</div>`;
+
+    if (foods.length > 0) {
+        const totCal = Math.round(foods.reduce((acc, curr) => acc + curr.calories, 0));
+        const totProt = Math.round(foods.reduce((acc, curr) => acc + curr.protein, 0) * 10) / 10;
+        const totCarb = Math.round(foods.reduce((acc, curr) => acc + curr.carbs, 0) * 10) / 10;
+        const totFat = Math.round(foods.reduce((acc, curr) => acc + curr.fat, 0) * 10) / 10;
+
+        const targets = nutritionTargets || { calories: 2500, protein: 180, carbs: 250, fats: 70 };
+        const calPct = Math.min(100, Math.round((totCal / targets.calories) * 100));
+        const protPct = Math.min(100, Math.round((totProt / targets.protein) * 100));
+        const carbPct = Math.min(100, Math.round((totCarb / targets.carbs) * 100));
+        const fatPct = Math.min(100, Math.round((totFat / targets.fats) * 100));
+
+        htmlContent += `
+        <div class="fuel-summary-card" style="margin-top: 0; background: var(--bg-l2);">
+            <div class="fuel-summary-grid" style="gap: 8px; margin-bottom: 16px;">
+                <div class="fuel-metric">
+                    <div class="fuel-metric-val">${totCal}</div>
+                    <div class="fuel-metric-label">kcal</div>
+                </div>
+                <div class="fuel-metric">
+                    <div class="fuel-metric-val" style="color: var(--accent);">${totProt}g</div>
+                    <div class="fuel-metric-label">Protein</div>
+                </div>
+                <div class="fuel-metric">
+                    <div class="fuel-metric-val" style="color: #00D2FF;">${totCarb}g</div>
+                    <div class="fuel-metric-label">Carbs</div>
+                </div>
+                <div class="fuel-metric">
+                    <div class="fuel-metric-val" style="color: #FF9F00;">${totFat}g</div>
+                    <div class="fuel-metric-label">Fats</div>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 12px;">
+                <div class="macro-progress-container">
+                    <div class="macro-progress-header">
+                        <span style="color: var(--text-primary);">Calories</span>
+                        <span style="color: var(--text-secondary); font-variant-numeric: tabular-nums;">${totCal} / ${targets.calories} kcal (${calPct}%)</span>
+                    </div>
+                    <div class="macro-progress-track">
+                        <div class="macro-progress-bar cal" style="width: ${calPct}%;"></div>
+                    </div>
+                </div>
+                <div class="macro-progress-container">
+                    <div class="macro-progress-header">
+                        <span style="color: var(--accent);">Protein</span>
+                        <span style="color: var(--text-secondary); font-variant-numeric: tabular-nums;">${totProt} / ${targets.protein}g (${protPct}%)</span>
+                    </div>
+                    <div class="macro-progress-track">
+                        <div class="macro-progress-bar prot" style="width: ${protPct}%;"></div>
+                    </div>
+                </div>
+                <div class="macro-progress-container">
+                    <div class="macro-progress-header">
+                        <span style="color: #00D2FF;">Carbs</span>
+                        <span style="color: var(--text-secondary); font-variant-numeric: tabular-nums;">${totCarb} / ${targets.carbs}g (${carbPct}%)</span>
+                    </div>
+                    <div class="macro-progress-track">
+                        <div class="macro-progress-bar carb" style="width: ${carbPct}%;"></div>
+                    </div>
+                </div>
+                <div class="macro-progress-container">
+                    <div class="macro-progress-header">
+                        <span style="color: #FF9F00;">Fats</span>
+                        <span style="color: var(--text-secondary); font-variant-numeric: tabular-nums;">${totFat} / ${targets.fats}g (${fatPct}%)</span>
+                    </div>
+                    <div class="macro-progress-track">
+                        <div class="macro-progress-bar fat" style="width: ${fatPct}%;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="overflow-x: auto;">
+                <table class="fuel-items-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Time</th>
+                            <th>Item</th>
+                            <th style="width: 50px; text-align: right;">kcal</th>
+                            <th style="width: 40px; text-align: right;">P</th>
+                            <th style="width: 40px; text-align: right;">C</th>
+                            <th style="width: 40px; text-align: right;">F</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${foods.map(f => `
+                            <tr>
+                                <td class="td-muted data-mono" style="font-size:0.75rem;">${f.log_time}</td>
+                                <td style="font-weight: 500;">
+                                    ${f.name}
+                                    ${f.tag ? `<span class="badge mt-4" style="font-size:0.55rem; padding: 1px 4px; display: inline-block;">${f.tag}</span>` : ''}
+                                </td>
+                                <td class="data-mono" style="text-align: right;">${Math.round(f.calories)}</td>
+                                <td class="data-mono text-accent" style="text-align: right;">${f.protein}g</td>
+                                <td class="data-mono" style="color: #00D2FF; text-align: right;">${f.carbs}g</td>
+                                <td class="data-mono" style="color: #FF9F00; text-align: right;">${f.fat}g</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    } else {
+        htmlContent += `
+        <div style="font-size: 0.8125rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--radius); padding: 16px; text-align: center;">
+            No daily food intake logged.
+            <div style="margin-top: 10px;">
+                <a href="/nutrition" class="btn btn-ghost btn-sm" style="font-size: 0.6875rem; padding: 2px 8px; border: 1px solid var(--border);">Log Daily Fuel</a>
+            </div>
+        </div>`;
+    }
+    
+    htmlContent += `</div>`;
+
+    body.innerHTML = htmlContent;
+    
+    const modal = document.getElementById('dayModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
+
+function closeModal() {
+    const modal = document.getElementById('dayModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function handleOutsideClick(event) {
+    if (event.target.id === 'dayModal') {
+        closeModal();
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
 </script>
 {% endblock %}

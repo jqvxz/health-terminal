@@ -7,7 +7,6 @@
     <p>Configure your HealthTerminal experience</p>
 </div>
 
-<!-- Strava Connection -->
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">Strava Connection</div>
@@ -40,7 +39,6 @@
     </div>
 </div>
 
-<!-- OpenRouter API -->
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">OpenRouter API (AI)</div>
@@ -58,7 +56,21 @@
     <div class="label-caps mt-16">Model: Nemotron Super (Free) · 50 requests/day</div>
 </div>
 
-<!-- User Data -->
+<div class="card mb-24">
+    <div class="card-header">
+        <div class="card-title">API Ninjas API (Nutrition)</div>
+    </div>
+    <div class="form-group">
+        <label class="form-label">API Key</label>
+        <input type="password" class="form-input" id="ninjaApiKeyInput" value="{{ settings.get('apininjas_api_key', '') }}"
+            placeholder="api-ninjas-key-...">
+    </div>
+    <div class="flex gap-8 items-center">
+        <button class="btn btn-primary btn-sm" onclick="saveNinjaApiKey()">Save Key</button>
+    </div>
+    <div class="label-caps mt-16">Used for generic ingredient macro parsing · 800 free requests/day</div>
+</div>
+
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">User Data</div>
@@ -112,7 +124,6 @@
     </div>
 </div>
 
-<!-- Appearance -->
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">Appearance</div>
@@ -136,7 +147,6 @@
     </div>
 </div>
 
-<!-- Data Management -->
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">Data Management</div>
@@ -173,7 +183,6 @@
     </div>
 </div>
 
-<!-- Disclaimer -->
 <div class="card mb-24" style="border-color:var(--border);">
     <div class="card-header">
         <div class="card-title">Disclaimer</div>
@@ -192,7 +201,6 @@
     </div>
 </div>
 
-<!-- Danger Zone -->
 <div class="card danger-zone mb-24">
     <div class="card-header">
         <div class="card-title" style="color:var(--danger);">Danger Zone</div>
@@ -206,7 +214,6 @@
     </div>
 </div>
 
-<!-- Links -->
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">About</div>
@@ -251,6 +258,12 @@
         const key = document.getElementById('apiKeyInput').value;
         await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ openrouter_api_key: key }) });
         showToast('API key saved', 'success');
+    }
+
+    async function saveNinjaApiKey() {
+        const key = document.getElementById('ninjaApiKeyInput').value;
+        await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apininjas_api_key: key }) });
+        showToast('API Ninjas key saved', 'success');
     }
 
     async function validateKey() {

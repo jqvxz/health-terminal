@@ -32,7 +32,7 @@ def update_settings():
 
     allowed = [
         "body_weight", "weight_unit", "distance_unit", "theme",
-        "enabled_tabs", "openrouter_api_key",
+        "enabled_tabs", "openrouter_api_key", "apininjas_api_key",
         "user_height", "user_age", "user_sex",
     ]
 

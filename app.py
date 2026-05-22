@@ -23,12 +23,14 @@ def create_app():
     from routes.export import export_bp
     from routes.goals import goals_bp
     from routes.settings import settings_bp
+    from routes.nutrition import nutrition_bp
 
     app.register_blueprint(strava_bp)
     app.register_blueprint(ai_bp)
     app.register_blueprint(export_bp)
     app.register_blueprint(goals_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(nutrition_bp)
 
     # Page routes
     @app.route("/")
@@ -50,6 +52,11 @@ def create_app():
     def progress():
         settings = get_all_settings()
         return render_template("progress.html", settings=settings, active_tab="progress")
+
+    @app.route("/nutrition")
+    def nutrition():
+        settings = get_all_settings()
+        return render_template("nutrition.html", settings=settings, active_tab="nutrition")
 
     @app.route("/recommendations")
     def recommendations():

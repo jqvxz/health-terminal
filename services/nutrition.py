@@ -71,15 +71,21 @@ def get_macro_recommendations(calories_burned, activity_type, body_weight_kg):
     else:
         bmr += 5.0
 
-    # Calculate NEAT (Non-Exercise Activity Thermogenesis)
-    # Assuming baseline daily mobility of ~7000 steps (approx. 5km / 1 hour of walking at 3.5 METs)
-    neat_calories = 3.5 * body_weight_kg
+    # Moderate Daily Activity Baseline (+30% of BMR)
+    mod_activity_offset = bmr * 0.3
 
-    total = bmr + neat_calories + calories_burned
+    # 5000 Steps Minimum Calories
+    steps_calories = body_weight_kg * 2.8125
+
+    # Total Daily Target Calories
+    total = bmr + mod_activity_offset + steps_calories + calories_burned
     return {
         "total_calories": round(total),
         "calories_burned": round(calories_burned),
         "protein_g": int(round((total * p) / 4)),
         "carbs_g": int(round((total * c) / 4)),
         "fat_g": int(round((total * f) / 9)),
+        "bmr": round(bmr),
+        "activity_offset": round(mod_activity_offset),
+        "steps_calories": round(steps_calories),
     }

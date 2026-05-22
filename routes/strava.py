@@ -400,24 +400,30 @@ def api_nutrition(activity_id):
         return jsonify({"error": "Not found"}), 404
 
     body_weight = float(get_setting("body_weight", "75"))
+    weight_unit = get_setting("weight_unit") or "kg"
+    if weight_unit == "lbs":
+        body_weight_kg = body_weight * 0.45359237
+    else:
+        body_weight_kg = body_weight
+
     activity_type = activity["activity_type"]
     duration = activity["moving_time"] or 0
 
     if activity["is_hevy"]:
-        calories = estimate_calories_lifting(duration, body_weight)
+        calories = estimate_calories_lifting(duration, body_weight_kg)
     elif activity_type in ("Run", "VirtualRun", "TrailRun"):
         calories = estimate_calories_running(
-            activity["distance"] or 0, duration, body_weight,
+            activity["distance"] or 0, duration, body_weight_kg,
             activity["average_heartrate"]
         )
     else:
-        calories = estimate_calories_general(activity_type, duration, body_weight)
+        calories = estimate_calories_general(activity_type, duration, body_weight_kg)
 
     # If Strava provided calories, prefer those
     if activity["calories"] and activity["calories"] > 0:
         calories = activity["calories"]
 
-    macros = get_macro_recommendations(calories, activity_type, body_weight)
+    macros = get_macro_recommendations(calories, activity_type, body_weight_kg)
     return jsonify(macros)
 
 
@@ -429,20 +435,26 @@ def api_daily_nutrition():
 
     activities = get_activities(start_date=today, limit=100)
     body_weight = float(get_setting("body_weight", "75"))
+    weight_unit = get_setting("weight_unit") or "kg"
+    if weight_unit == "lbs":
+        body_weight_kg = body_weight * 0.45359237
+    else:
+        body_weight_kg = body_weight
+
     total_calories = 0
 
     for a in activities:
         if a["calories"] and a["calories"] > 0:
             total_calories += a["calories"]
         elif a["is_hevy"]:
-            total_calories += estimate_calories_lifting(a["moving_time"] or 0, body_weight)
+            total_calories += estimate_calories_lifting(a["moving_time"] or 0, body_weight_kg)
         elif a["activity_type"] in ("Run", "VirtualRun", "TrailRun"):
             total_calories += estimate_calories_running(
-                a["distance"] or 0, a["moving_time"] or 0, body_weight
+                a["distance"] or 0, a["moving_time"] or 0, body_weight_kg
             )
         else:
             total_calories += estimate_calories_general(
-                a["activity_type"], a["moving_time"] or 0, body_weight
+                a["activity_type"], a["moving_time"] or 0, body_weight_kg
             )
 
     # Determine dominant activity type
@@ -452,7 +464,7 @@ def api_daily_nutrition():
     elif any(a["activity_type"] in ("Run", "VirtualRun", "TrailRun") for a in activities):
         dominant = "Run"
 
-    macros = get_macro_recommendations(total_calories, dominant, body_weight)
+    macros = get_macro_recommendations(total_calories, dominant, body_weight_kg)
     macros["activity_count"] = len(activities)
     return jsonify(macros)
 
