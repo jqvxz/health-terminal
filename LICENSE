@@ -1,0 +1,98 @@
+HEALTHTERMINAL PROPRIETARY SOFTWARE LICENSE
+Copyright (c) 2026 Javon Unger. All rights reserved.
+
+1. OWNERSHIP AND INTELLECTUAL PROPERTY
+
+   This software, "HealthTerminal", including all of its source code,
+   binaries, documentation, assets, design, logic, and any associated
+   files (collectively, the "Software"), is the sole and exclusive
+   intellectual property of Javon Unger ("the Author"). All rights
+   not explicitly granted in this License are reserved by the Author.
+
+2. PERMITTED USE
+
+   You are permitted to:
+   a) View the source code of the Software solely for personal,
+      educational, or evaluative purposes.
+   b) Fork or clone the repository for the purpose of submitting
+      contributions back to the original project via pull request,
+      subject to Section 6.
+
+3. PROHIBITED USE
+
+   You are expressly prohibited from:
+   a) Using the Software or any portion of it for any commercial
+      purpose, including but not limited to selling, licensing,
+      renting, or monetizing the Software or any derivative of it.
+   b) Redistributing, publishing, or making available the Software
+      or any modified version of it to any third party, in source
+      or binary form, without prior written consent from the Author.
+   c) Claiming authorship, ownership, or co-ownership of the Software
+      or any portion of it.
+   d) Removing, altering, or obscuring this license, any copyright
+      notice, or any attribution to the Author from any copy or
+      derivative of the Software.
+   e) Sublicensing the Software or granting others any rights not
+      explicitly permitted by this License.
+   f) Using the Software or any part of it to train, fine-tune, or
+      build machine learning or AI models without explicit written
+      permission from the Author.
+   g) Deploying the Software as a hosted service, SaaS product, or
+      any publicly accessible application without explicit written
+      permission from the Author.
+   h) Rebranding, renaming, or presenting the Software under a
+      different name or identity.
+
+4. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR
+   NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+   CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+   CONTRACT, TORT, OR OTHERWISE, ARISING FROM OR IN CONNECTION WITH
+   THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+5. LIMITATION OF LIABILITY
+
+   To the maximum extent permitted by applicable law, the Author
+   shall not be liable for any direct, indirect, incidental, special,
+   exemplary, or consequential damages (including but not limited to
+   loss of data, loss of profits, or business interruption) arising
+   out of or in connection with this Software, even if advised of
+   the possibility of such damages.
+
+6. CONTRIBUTIONS
+
+   Any contribution submitted to this project by a third party
+   (including but not limited to pull requests, patches, or
+   suggestions) is understood to be submitted voluntarily and
+   without expectation of compensation. By submitting a contribution,
+   you agree to transfer all intellectual property rights of that
+   contribution to the Author. The Author retains the right to
+   accept, reject, or modify any contribution at their sole
+   discretion.
+
+7. TERMINATION
+
+   Any breach of the terms set out in this License will result in
+   the immediate and automatic termination of any rights granted to
+   you under this License. Upon termination, you must cease all use
+   of the Software and destroy all copies in your possession.
+
+8. GOVERNING LAW
+
+   This License shall be governed by and construed in accordance
+   with the laws of the Federal Republic of Germany. Any disputes
+   arising under this License shall be subject to the exclusive
+   jurisdiction of the courts of Lower Saxony, Germany.
+
+9. CONTACT
+
+   For licensing inquiries, commercial use requests, or written
+   permissions, contact the Author directly via the GitHub
+   repository associated with this Software.
+
+By accessing, cloning, forking, or using this Software in any way,
+you acknowledge that you have read, understood, and agree to be
+bound by the terms of this License.
