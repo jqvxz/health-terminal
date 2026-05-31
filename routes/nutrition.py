@@ -11,7 +11,10 @@ from flask import Blueprint, request, jsonify
 from config import Config
 from models.db import (
     get_db, get_setting, get_nutrition_cache, set_nutrition_cache,
-    get_nutrition_api_usage_today, increment_nutrition_api_usage
+    get_nutrition_api_usage_today, increment_nutrition_api_usage,
+    get_custom_foods, add_custom_food, delete_custom_food,
+    get_recipes, add_recipe, delete_recipe, get_recipe_by_id,
+    get_custom_food_by_id
 )
 
 nutrition_bp = Blueprint("nutrition", __name__)
@@ -226,7 +229,10 @@ def search_products():
 
 
 def _search_off_scored(query, limit=8):
-    """Search OFF and sort results by keyword relevance to the query."""
+    """Search OFF and sort results by keyword relevance to the query.
+    Applies strict relevance filtering to avoid returning completely unrelated products
+    (e.g., returning a pizza product when searching for 'mozzarella').
+    """
     url = "https://world.openfoodfacts.org/cgi/search.pl"
     params = {
         "search_terms": query,
@@ -243,7 +249,9 @@ def _search_off_scored(query, limit=8):
         data = resp.json()
         products = data.get("products", [])
         results = []
-        query_words = set(query.lower().split())
+        query_lower = query.lower().strip()
+        query_words = set(query_lower.split())
+        num_query_words = len(query_words)
 
         for p in products:
             code = p.get("code")
@@ -270,14 +278,41 @@ def _search_off_scored(query, limit=8):
 
             name_lower = prod_name.lower()
             brand_lower = brand_name.lower()
+            name_words = set(name_lower.split())
+
+            # Count how many query words appear in the product name or brand
+            name_hits = sum(1 for w in query_words if w in name_lower)
+            brand_hits = sum(1 for w in query_words if w in brand_lower)
+            total_hits = name_hits + brand_hits
+
+            # FILTER: Require at least 50% of query words to appear somewhere
+            if num_query_words > 0 and name_hits < max(1, num_query_words * 0.5):
+                continue
+
+            # Score: reward exact substring match, per-word name hits, penalize name bloat
             score = 0
-            for w in query_words:
-                if w in name_lower:
-                    score += 3
-                elif w in brand_lower:
-                    score += 1
-            if query.lower() in name_lower:
-                score += 10
+            score += name_hits * 3
+            score += brand_hits * 1
+
+            # Big bonus for exact query appearing as a substring of the product name
+            if query_lower in name_lower:
+                score += 15
+
+            # Bonus for short, focused product names (likely the actual ingredient, not a combo dish)
+            # E.g., "Mozzarella" (1 word) should rank higher than "Pizza Jambon Mozzarella" (3 words)
+            if len(name_words) <= num_query_words + 2:
+                score += 5
+
+            # Penalize products where the query words are a tiny fraction of the product name
+            # (avoids "Picard Pizza N°6 Jambon Speck Roquette Mozzarella" matching "mozzarella")
+            if len(name_words) > 0:
+                coverage = name_hits / len(name_words)
+                if coverage < 0.2:
+                    score -= 5
+
+            # Skip products with zero or negative relevance
+            if score <= 0:
+                continue
 
             results.append({
                 "barcode": code,
@@ -300,37 +335,79 @@ def _search_off_scored(query, limit=8):
 
 
 COMMON_FOODS = {
+    # Proteins
     "chicken breast": {"calories": 165, "protein": 31.0, "carbs": 0.0, "fat": 3.6, "unit_weight": 100.0},
+    "chicken thigh": {"calories": 209, "protein": 26.0, "carbs": 0.0, "fat": 10.9, "unit_weight": 100.0},
     "chicken": {"calories": 165, "protein": 31.0, "carbs": 0.0, "fat": 3.6, "unit_weight": 100.0},
     "beef": {"calories": 250, "protein": 26.0, "carbs": 0.0, "fat": 15.0, "unit_weight": 100.0},
+    "ground beef": {"calories": 250, "protein": 26.0, "carbs": 0.0, "fat": 15.0, "unit_weight": 100.0},
     "steak": {"calories": 250, "protein": 26.0, "carbs": 0.0, "fat": 15.0, "unit_weight": 100.0},
     "egg": {"calories": 155, "protein": 13.0, "carbs": 1.1, "fat": 11.0, "unit_weight": 50.0},
     "eggs": {"calories": 155, "protein": 13.0, "carbs": 1.1, "fat": 11.0, "unit_weight": 50.0},
+    "salmon": {"calories": 208, "protein": 20.0, "carbs": 0.0, "fat": 13.0, "unit_weight": 100.0},
+    "tuna": {"calories": 130, "protein": 28.0, "carbs": 0.0, "fat": 0.6, "unit_weight": 100.0},
+    # Dairy / Cheese
+    "mozzarella": {"calories": 280, "protein": 28.0, "carbs": 3.1, "fat": 17.0, "unit_weight": 100.0},
+    "mozarella": {"calories": 280, "protein": 28.0, "carbs": 3.1, "fat": 17.0, "unit_weight": 100.0},
+    "mozzarella cheese": {"calories": 280, "protein": 28.0, "carbs": 3.1, "fat": 17.0, "unit_weight": 100.0},
+    "cheddar": {"calories": 403, "protein": 25.0, "carbs": 1.3, "fat": 33.0, "unit_weight": 100.0},
+    "cheddar cheese": {"calories": 403, "protein": 25.0, "carbs": 1.3, "fat": 33.0, "unit_weight": 100.0},
+    "parmesan": {"calories": 431, "protein": 38.0, "carbs": 4.1, "fat": 29.0, "unit_weight": 100.0},
+    "cream cheese": {"calories": 342, "protein": 6.0, "carbs": 5.5, "fat": 34.0, "unit_weight": 100.0},
+    "cottage cheese": {"calories": 98, "protein": 11.0, "carbs": 3.4, "fat": 4.3, "unit_weight": 100.0},
+    "greek yogurt": {"calories": 97, "protein": 9.0, "carbs": 3.6, "fat": 5.0, "unit_weight": 100.0},
+    "yogurt": {"calories": 59, "protein": 3.5, "carbs": 5.0, "fat": 3.3, "unit_weight": 100.0},
+    # Grains / Carbs
     "oats": {"calories": 389, "protein": 16.9, "carbs": 66.3, "fat": 6.9, "unit_weight": 100.0},
     "oatmeal": {"calories": 389, "protein": 16.9, "carbs": 66.3, "fat": 6.9, "unit_weight": 100.0},
     "rice": {"calories": 130, "protein": 2.7, "carbs": 28.0, "fat": 0.3, "unit_weight": 100.0},
     "white rice": {"calories": 130, "protein": 2.7, "carbs": 28.0, "fat": 0.3, "unit_weight": 100.0},
     "brown rice": {"calories": 111, "protein": 2.6, "carbs": 23.0, "fat": 0.9, "unit_weight": 100.0},
+    "pasta": {"calories": 131, "protein": 5.0, "carbs": 25.0, "fat": 1.1, "unit_weight": 100.0},
+    "bread": {"calories": 265, "protein": 9.0, "carbs": 49.0, "fat": 3.2, "unit_weight": 100.0},
+    "white bread": {"calories": 265, "protein": 9.0, "carbs": 49.0, "fat": 3.2, "unit_weight": 100.0},
+    "whole wheat bread": {"calories": 247, "protein": 13.0, "carbs": 43.0, "fat": 3.4, "unit_weight": 100.0},
+    "tortilla": {"calories": 312, "protein": 8.0, "carbs": 52.0, "fat": 8.0, "unit_weight": 100.0},
+    # Milk
     "1.5% fat milk": {"calories": 47, "protein": 3.4, "carbs": 4.8, "fat": 1.5, "unit_weight": 100.0},
     "semi-skimmed milk": {"calories": 47, "protein": 3.4, "carbs": 4.8, "fat": 1.5, "unit_weight": 100.0},
     "whole milk": {"calories": 62, "protein": 3.2, "carbs": 4.6, "fat": 3.5, "unit_weight": 100.0},
     "skimmed milk": {"calories": 35, "protein": 3.4, "carbs": 5.0, "fat": 0.1, "unit_weight": 100.0},
     "milk": {"calories": 42, "protein": 3.4, "carbs": 5.0, "fat": 1.0, "unit_weight": 100.0},
+    "almond milk": {"calories": 15, "protein": 0.6, "carbs": 0.3, "fat": 1.1, "unit_weight": 100.0},
+    # Fats / Oils
     "butter": {"calories": 717, "protein": 0.9, "carbs": 0.1, "fat": 81.0, "unit_weight": 100.0},
+    "olive oil": {"calories": 884, "protein": 0.0, "carbs": 0.0, "fat": 100.0, "unit_weight": 100.0},
+    "coconut oil": {"calories": 862, "protein": 0.0, "carbs": 0.0, "fat": 100.0, "unit_weight": 100.0},
+    "peanut butter": {"calories": 588, "protein": 25.0, "carbs": 20.0, "fat": 50.0, "unit_weight": 100.0},
+    # Fruits
     "apple": {"calories": 52, "protein": 0.3, "carbs": 14.0, "fat": 0.2, "unit_weight": 100.0},
     "banana": {"calories": 89, "protein": 1.1, "carbs": 23.0, "fat": 0.3, "unit_weight": 100.0},
+    "avocado": {"calories": 160, "protein": 2.0, "carbs": 9.0, "fat": 15.0, "unit_weight": 100.0},
+    "strawberry": {"calories": 32, "protein": 0.7, "carbs": 7.7, "fat": 0.3, "unit_weight": 100.0},
+    "strawberries": {"calories": 32, "protein": 0.7, "carbs": 7.7, "fat": 0.3, "unit_weight": 100.0},
+    "blueberries": {"calories": 57, "protein": 0.7, "carbs": 14.5, "fat": 0.3, "unit_weight": 100.0},
+    # Vegetables
     "broccoli": {"calories": 34, "protein": 2.8, "carbs": 7.0, "fat": 0.4, "unit_weight": 100.0},
-    "salmon": {"calories": 208, "protein": 20.0, "carbs": 0.0, "fat": 13.0, "unit_weight": 100.0},
-    "tuna": {"calories": 130, "protein": 28.0, "carbs": 0.0, "fat": 0.6, "unit_weight": 100.0},
+    "spinach": {"calories": 23, "protein": 2.9, "carbs": 3.6, "fat": 0.4, "unit_weight": 100.0},
+    "tomato": {"calories": 18, "protein": 0.9, "carbs": 3.9, "fat": 0.2, "unit_weight": 100.0},
+    "onion": {"calories": 40, "protein": 1.1, "carbs": 9.3, "fat": 0.1, "unit_weight": 100.0},
+    # Potato
     "potato": {"calories": 77, "protein": 2.0, "carbs": 17.0, "fat": 0.1, "unit_weight": 100.0},
     "potatoes": {"calories": 77, "protein": 2.0, "carbs": 17.0, "fat": 0.1, "unit_weight": 100.0},
     "sweet potato": {"calories": 86, "protein": 1.6, "carbs": 20.0, "fat": 0.1, "unit_weight": 100.0},
+    "sweet potato fries": {"calories": 260, "protein": 2.6, "carbs": 37.0, "fat": 12.0, "unit_weight": 100.0},
+    "french fries": {"calories": 312, "protein": 3.4, "carbs": 41.0, "fat": 15.0, "unit_weight": 100.0},
+    "fries": {"calories": 312, "protein": 3.4, "carbs": 41.0, "fat": 15.0, "unit_weight": 100.0},
+    # Supplements
     "whey": {"calories": 380, "protein": 80.0, "carbs": 6.0, "fat": 3.0, "unit_weight": 100.0},
     "whey protein": {"calories": 380, "protein": 80.0, "carbs": 6.0, "fat": 3.0, "unit_weight": 100.0},
     "protein powder": {"calories": 380, "protein": 80.0, "carbs": 6.0, "fat": 3.0, "unit_weight": 100.0},
     "protein shake": {"calories": 380, "protein": 80.0, "carbs": 6.0, "fat": 3.0, "unit_weight": 100.0},
-    "olive oil": {"calories": 884, "protein": 0.0, "carbs": 0.0, "fat": 100.0, "unit_weight": 100.0},
-    "avocado": {"calories": 160, "protein": 2.0, "carbs": 9.0, "fat": 15.0, "unit_weight": 100.0},
+    # Nuts / Seeds
+    "almonds": {"calories": 579, "protein": 21.0, "carbs": 22.0, "fat": 50.0, "unit_weight": 100.0},
+    "peanuts": {"calories": 567, "protein": 26.0, "carbs": 16.0, "fat": 49.0, "unit_weight": 100.0},
+    "walnuts": {"calories": 654, "protein": 15.0, "carbs": 14.0, "fat": 65.0, "unit_weight": 100.0},
 }
 
 def try_local_food_match(text):
@@ -363,13 +440,22 @@ def try_local_food_match(text):
         if 'ml' in matched_unit or 'milliliter' in matched_unit:
             unit = "ml"
         
-    # Find matching food key
+    # Find matching food key — only accept if the key covers a significant portion
+    # of the food-name text (strip leading quantity so we compare names to names).
+    food_name_text = text_lower
+    # Remove leading quantity expression to get just the food name part
+    food_name_text = re.sub(r'^\d+(?:\.\d+)?\s*(?:g|gram|grams|ml|milliliter|milliliters)?\s*', '', food_name_text).strip()
+
     matched_key = None
     for key in sorted(COMMON_FOODS.keys(), key=len, reverse=True):
-        if key in text_lower:
-            matched_key = key
-            break
-            
+        if key in food_name_text:
+            # Require the key to cover at least 80% of the food-name text length.
+            # This prevents "sweet potato" (12) matching "sweet potato fries" (18).
+            # Only exact or near-exact matches are accepted.
+            if len(key) >= len(food_name_text) * 0.80:
+                matched_key = key
+                break
+
     if matched_key:
         info = COMMON_FOODS[matched_key]
         mult = grams / 100.0
@@ -381,8 +467,105 @@ def try_local_food_match(text):
             "fat": round(info["fat"] * mult, 1),
             "source": "local_database",
         }
-        
+
     return None
+
+
+def try_db_food_match(text):
+    """
+    Search SQLite custom_foods and recipes for a match.
+    Extracts multiplier/portion quantity and scales macros.
+    """
+    import re
+    text_lower = text.lower().strip()
+
+    c_foods = get_custom_foods()
+    recipes_list = get_recipes()
+
+    all_db_items = []
+    for f in c_foods:
+        all_db_items.append({"id": f["id"], "name": f["name"].lower(), "type": "custom_food", "data": f})
+    for r in recipes_list:
+        all_db_items.append({"id": r["id"], "name": r["name"].lower(), "type": "recipe", "data": r})
+
+    all_db_items.sort(key=lambda x: len(x["name"]), reverse=True)
+
+    qty = None
+    unit = None
+    remainder = text_lower
+
+    lead_qty_match = re.match(r'^(\d+(?:\.\d+)?)\s*(?:g|gram|grams|ml|milliliter|milliliters|serving|servings|x)?\b\s*(.*)$', text_lower)
+    if lead_qty_match:
+        val_str = lead_qty_match.group(1)
+        cand = lead_qty_match.group(2).strip()
+        for item in all_db_items:
+            if item["name"] == cand or cand.startswith(item["name"]):
+                qty = float(val_str)
+                full_match = lead_qty_match.group(0)
+                unit_part = full_match[:len(full_match) - len(cand)].strip()
+                if 'g' in unit_part or 'gram' in unit_part:
+                    unit = 'g'
+                elif 'ml' in unit_part or 'milliliter' in unit_part:
+                    unit = 'ml'
+                else:
+                    unit = 'serving'
+                remainder = item["name"]
+                break
+
+    matched_item = None
+    if qty is None:
+        for item in all_db_items:
+            if item["name"] in text_lower:
+                matched_item = item
+                remainder = item["name"]
+                qty_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:g|gram|grams|ml|milliliter|milliliters|serving|servings|x)?\b', text_lower)
+                if qty_match:
+                    qty = float(qty_match.group(1))
+                    matched_unit = qty_match.group(0).lower()
+                    if 'g' in matched_unit or 'gram' in matched_unit:
+                        unit = 'g'
+                    elif 'ml' in matched_unit or 'milliliter' in matched_unit:
+                        unit = 'ml'
+                    else:
+                        unit = 'serving'
+                break
+    else:
+        for item in all_db_items:
+            if item["name"] == remainder:
+                matched_item = item
+                break
+
+    if matched_item:
+        f_data = matched_item["data"]
+        item_type = matched_item["type"]
+
+        factor = 1.0
+        if qty is not None:
+            if item_type == "custom_food":
+                serving_size = float(f_data.get("serving_size") or 100.0)
+                if unit in ('g', 'ml'):
+                    factor = qty / serving_size
+                else:
+                    factor = qty
+            else:
+                factor = qty
+
+        scaled_qty = qty if qty is not None else (f_data.get("serving_size") if item_type == "custom_food" else 1.0)
+        display_unit = unit if unit is not None else (f_data.get("serving_unit") if item_type == "custom_food" else "serving")
+        formatted_name = f"{round(scaled_qty)}{display_unit} {f_data['name']}"
+
+        return {
+            "name": formatted_name,
+            "calories": round(float(f_data["calories"]) * factor),
+            "protein": round(float(f_data["protein"]) * factor, 1),
+            "carbs": round(float(f_data["carbs"]) * factor, 1),
+            "fat": round(float(f_data["fat"]) * factor, 1),
+            "source": item_type,
+            "db_id": f_data["id"]
+        }
+
+    return None
+
 
 
 
@@ -457,7 +640,12 @@ def parse_single_ingredient(text):
     import re
     normalized_query = text.lower().strip()
 
-    # 1. Check local database FIRST (always accurate, free, instant)
+    # 1. Check custom foods and recipes database match (highest priority)
+    db_match = try_db_food_match(text)
+    if db_match:
+        return db_match
+
+    # 2. Check local database FIRST (always accurate, free, instant)
     local_match = try_local_food_match(text)
     if local_match:
         set_nutrition_cache(normalized_query, "local", json.dumps(local_match))
@@ -656,123 +844,197 @@ def analyze_generic_ingredients():
     return jsonify(combined_result)
 
 
-
 @nutrition_bp.route("/api/nutrition/smart-search", methods=["POST"])
 def smart_search():
-    """Unified search combining local DB, API Ninjas, and Open Food Facts with relevance scoring."""
+    """Unified search combining structured AI query translation, local DB matching, API Ninjas and OFF alternatives."""
     import re
     body = request.json or {}
     query = body.get("query", "").strip()
     if not query:
         return jsonify({"error": "Search query is required"}), 400
 
-    parts = [p.strip() for p in query.split(",") if p.strip()]
+    api_key = get_setting("openrouter_api_key") or Config.OPENROUTER_API_KEY
+    parsed_items = []
+    translated_query = ""
+
+    # 1. Attempt structured AI query translation and splitting
+    if api_key:
+        try:
+            translation_system_prompt = (
+                "You are an elite, highly precise nutrition parser. Your task is to split a natural language description "
+                "of a meal into its INDIVIDUAL distinct ingredients/food items, and format each into a clean portion-based "
+                "description (e.g. '200ml milk', '30g protein powder', '150g chicken breast').\n\n"
+                "SPLITTING RULES (CRITICAL):\n"
+                "- Split on 'and', 'with', '+', commas, and similar connectors that separate DISTINCT ingredients.\n"
+                "- 'sweet potato fries with mozzarella cheese and chicken' -> THREE separate items: 'sweet potato fries', 'mozzarella cheese', 'chicken'.\n"
+                "- 'oats with milk' -> TWO items: 'oats', 'milk'.\n"
+                "- Do NOT keep compound phrases like 'X with Y' as a single item unless they form an inseparable dish name (e.g., 'mac and cheese', 'bread and butter').\n\n"
+                "PORTION ESTIMATION (CRITICAL):\n"
+                "- If a portion is not specified, ALWAYS estimate a realistic portion based on standard serving sizes.\n"
+                "  Examples: 'chicken' -> '150g chicken breast', 'some protein powder' -> '30g protein powder', \n"
+                "  'eggs' -> '2 eggs', 'an apple' -> '1 medium apple (182g)', 'sweet potato fries' -> '150g sweet potato fries'.\n"
+                "- Never default to 100g for everything — use realistic context-aware portions.\n\n"
+                "You MUST return a JSON array of objects, where each object has exactly the following keys:\n"
+                "- 'query': The clean descriptive name of the food item (e.g. 'milk', 'protein powder', 'chicken breast')\n"
+                "- 'formatted_query': The portioned name of the item (e.g. '200ml milk', '30g protein powder', '150g chicken breast')\n"
+                "- 'quantity': The portion weight or count as a number (e.g. 200.0, 30.0, 150.0)\n"
+                "- 'unit': The unit of portion, typically 'g', 'ml', or 'serving' (e.g. 'ml', 'g')\n"
+                "- 'calories': Estimated calories for THIS portion as an integer\n"
+                "- 'protein': Estimated protein in grams for THIS portion as a float\n"
+                "- 'carbs': Estimated carbs in grams for THIS portion as a float\n"
+                "- 'fat': Estimated fat in grams for THIS portion as a float\n\n"
+                "CRITICAL OUTPUT REQUIREMENT:\n"
+                "Output ONLY a raw JSON array. DO NOT include any introductory text, markdown code blocks, backticks, or other formatting. "
+                "The response must parse successfully with json.loads()."
+            )
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "HTTP-Referer": Config.BASE_URL,
+                "X-Title": "HealthTerminal",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": "google/gemini-2.5-flash:free",
+                "messages": [
+                    {"role": "system", "content": translation_system_prompt},
+                    {"role": "user", "content": query},
+                ],
+                "max_tokens": 500,
+                "temperature": 0.0,
+            }
+            resp = requests.post(Config.OPENROUTER_API_URL, headers=headers, json=payload, timeout=12)
+            if resp.status_code != 200:
+                payload["model"] = "meta-llama/llama-3.1-8b-instruct:free"
+                resp = requests.post(Config.OPENROUTER_API_URL, headers=headers, json=payload, timeout=12)
+
+            if resp.status_code == 200:
+                resp_json = resp.json()
+                if "choices" in resp_json and len(resp_json["choices"]) > 0:
+                    ai_output = resp_json["choices"][0]["message"]["content"].strip()
+                    if ai_output.startswith("```"):
+                        lines = ai_output.split("\n")
+                        if lines[0].startswith("```"):
+                            lines = lines[1:]
+                        if lines and lines[-1].startswith("```"):
+                            lines = lines[:-1]
+                        ai_output = "\n".join(lines).strip()
+                    
+                    parsed_items = json.loads(ai_output)
+                    translated_query = ", ".join(item.get("formatted_query", "") or f"{item.get('quantity')}{item.get('unit')} {item.get('query')}" for item in parsed_items)
+        except Exception as e:
+            print(f"JSON AI query parsing failed: {e}")
+
     results = []
 
-    for part in parts:
-        part_lower = part.lower().strip()
+    # 2. Process AI parsed items if successful
+    if parsed_items:
+        for item in parsed_items:
+            food_name = item.get("query", "").strip()
+            formatted_query = item.get("formatted_query", "").strip() or f"{item.get('quantity', 100.0)}{item.get('unit', 'g')} {food_name}"
+            quantity = float(item.get("quantity", 100.0))
+            unit = item.get("unit", "g")
 
-        # Parse quantity from query part
-        qty_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:g|gram|grams|ml|milliliter|milliliters)\b', part_lower)
-        quantity = float(qty_match.group(1)) if qty_match else 100.0
-        unit = "g"
-        if qty_match:
-            matched = qty_match.group(0).lower()
-            if 'ml' in matched or 'milliliter' in matched:
-                unit = "ml"
+            # Seek help through the local DB / calorie tracker API pipeline!
+            recommended = parse_single_ingredient(formatted_query)
 
-        # Extract clean food name (without quantity) for OFF search
-        food_name = re.sub(r'\d+(?:\.\d+)?\s*(?:g|gram|grams|ml|milliliter|milliliters)\b', '', part, flags=re.IGNORECASE).strip()
-        food_name = re.sub(r'[()]', '', food_name).strip()
-        if not food_name:
-            food_name = part
+            # Build AI fallback estimate values
+            ai_calories = round(float(item.get("calories", 0)))
+            ai_protein = round(float(item.get("protein", 0.0)), 1)
+            ai_carbs = round(float(item.get("carbs", 0.0)), 1)
+            ai_fat = round(float(item.get("fat", 0.0)), 1)
+            ai_has_data = ai_calories > 0 or ai_protein > 0
 
-        recommended = None
+            # Fall back to AI estimation if:
+            # a) parse returned nothing / zero macros, OR
+            # b) local_database returned a partial-name match where the matched food
+            #    name does not contain the full food_name the AI identified AND the AI
+            #    has real macro estimates (prevents 'sweet potato' matching 'sweet potato
+            #    fries with mozzarella cheese' from overriding AI's richer estimate).
+            local_partial = (
+                recommended
+                and recommended.get("source") == "local_database"
+                and food_name.lower() not in recommended.get("name", "").lower()
+                and ai_has_data
+            )
 
-        # 1. Local COMMON_FOODS (instant, free, highest priority)
-        local_match = try_local_food_match(part)
-        if local_match:
-            recommended = local_match
+            if not recommended or (recommended.get("calories", 0) == 0 and recommended.get("protein", 0) == 0) or local_partial:
+                recommended = {
+                    "name": formatted_query,
+                    "calories": ai_calories,
+                    "protein": ai_protein,
+                    "carbs": ai_carbs,
+                    "fat": ai_fat,
+                    "source": "ai_estimation"
+                }
 
-        # 2. Check cache for valid result (cal > 0)
-        if not recommended:
-            cached = get_nutrition_cache(part_lower)
-            if cached:
-                try:
-                    cached_data = json.loads(cached)
-                    if cached_data.get("calories", 0) > 0:
-                        recommended = cached_data
-                except Exception:
-                    pass
+            # Fetch branded product alternatives from Open Food Facts using the clean query name
+            alternatives = _search_off_scored(food_name, limit=6)
 
-        # 3. API Ninjas (if no local/cache match)
-        if not recommended:
-            api_key = get_setting("apininjas_api_key")
-            usage = get_nutrition_api_usage_today()
-            if api_key and usage < 800:
-                try:
-                    resp = requests.get(
-                        "https://api.api-ninjas.com/v1/nutrition",
-                        headers={"X-Api-Key": api_key},
-                        params={"query": part},
-                        timeout=10
-                    )
-                    if resp.status_code == 200:
-                        items = resp.json()
-                        if items:
-                            total_cal = sum(safe_float(i.get("calories")) for i in items)
-                            total_prot = sum(safe_float(i.get("protein_g")) for i in items)
-                            total_carb = sum(safe_float(i.get("carbohydrates_total_g")) for i in items)
-                            total_fat = sum(safe_float(i.get("fat_total_g")) for i in items)
+            # Filter out alternatives duplicate
+            if alternatives and recommended and recommended.get("source") == "openfoodfacts":
+                if alternatives[0]["name"].lower() in recommended["name"].lower():
+                    alternatives = alternatives[1:]
 
-                            names = []
-                            for i in items:
-                                serving = safe_float(i.get("serving_size_g", 0))
-                                n = i.get("name", "")
-                                names.append(f"{serving}g {n}" if serving else n)
+            results.append({
+                "query": food_name,
+                "recommended": recommended,
+                "alternatives": alternatives,
+                "quantity": quantity,
+                "unit": unit
+            })
 
-                            if total_cal > 0:
-                                result = {
-                                    "name": ", ".join(names) if names else part,
-                                    "calories": round(total_cal),
-                                    "protein": round(total_prot, 1),
-                                    "carbs": round(total_carb, 1),
-                                    "fat": round(total_fat, 1),
-                                    "source": "apininjas",
-                                }
-                                recommended = result
-                                set_nutrition_cache(part_lower, "apininjas", json.dumps(result))
-                                increment_nutrition_api_usage()
-                except Exception:
-                    pass
+    # 3. Fallback to classic keyword parsing if AI parsing failed or returned empty
+    if not results:
+        # Split by comma or "and" word boundaries
+        parts = [p.strip() for p in re.split(r',|\band\b', query, flags=re.IGNORECASE) if p.strip()]
+        for part in parts:
+            part_lower = part.lower().strip()
 
-        # 4. Search OFF for alternatives (always free)
-        alternatives = _search_off_scored(food_name, limit=6)
+            # Parse quantity from query part
+            qty_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:g|gram|grams|ml|milliliter|milliliters)\b', part_lower)
+            quantity = float(qty_match.group(1)) if qty_match else 100.0
+            unit = "g"
+            if qty_match:
+                matched = qty_match.group(0).lower()
+                if 'ml' in matched or 'milliliter' in matched:
+                    unit = "ml"
 
-        # 5. If still no recommended, promote best OFF alternative
-        if not recommended and alternatives:
-            best = alternatives[0]
-            factor = quantity / 100.0
-            recommended = {
-                "name": f"{round(quantity)}{unit} {best['name']}",
-                "calories": round(best["calories_100g"] * factor),
-                "protein": round(best["protein_100g"] * factor, 1),
-                "carbs": round(best["carbs_100g"] * factor, 1),
-                "fat": round(best["fat_100g"] * factor, 1),
-                "source": "openfoodfacts",
-            }
-            alternatives = alternatives[1:]
+            # Extract clean food name (without quantity)
+            food_name = re.sub(r'\d+(?:\.\d+)?\s*(?:g|gram|grams|ml|milliliter|milliliters)\b', '', part, flags=re.IGNORECASE).strip()
+            food_name = re.sub(r'[()]', '', food_name).strip()
+            if not food_name:
+                food_name = part
 
-        results.append({
-            "query": part,
-            "recommended": recommended,
-            "alternatives": alternatives,
-            "quantity": quantity,
-            "unit": unit,
-        })
+            recommended = parse_single_ingredient(part)
+
+            # Open Food Facts alternatives
+            alternatives = _search_off_scored(food_name, limit=6)
+
+            # Promoted best alternative if no recommended
+            if not recommended and alternatives:
+                best = alternatives[0]
+                factor = quantity / 100.0
+                recommended = {
+                    "name": f"{round(quantity)}{unit} {best['name']}",
+                    "calories": round(best["calories_100g"] * factor),
+                    "protein": round(best["protein_100g"] * factor, 1),
+                    "carbs": round(best["carbs_100g"] * factor, 1),
+                    "fat": round(best["fat_100g"] * factor, 1),
+                    "source": "openfoodfacts",
+                }
+                alternatives = alternatives[1:]
+
+            results.append({
+                "query": food_name,
+                "recommended": recommended,
+                "alternatives": alternatives,
+                "quantity": quantity,
+                "unit": unit
+            })
 
     return jsonify({
-        "results": results
+        "results": results,
+        "parsed_query": translated_query or query
     })
 
 
@@ -989,3 +1251,171 @@ def clear_food_log():
     with get_db() as conn:
         conn.execute("DELETE FROM daily_food_log WHERE log_date = ?", (target_date,))
         return jsonify({"success": True})
+
+
+# === CUSTOM FOODS & RECIPES CRUD ===
+
+@nutrition_bp.route("/api/nutrition/custom-foods", methods=["GET"])
+def api_get_custom_foods():
+    """Retrieve all saved custom foods."""
+    try:
+        foods = get_custom_foods()
+        return jsonify(foods)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@nutrition_bp.route("/api/nutrition/custom-foods", methods=["POST"])
+def api_add_custom_food():
+    """Add a new custom food."""
+    body = request.json or {}
+    name = body.get("name", "").strip()
+    calories = safe_float(body.get("calories"))
+    protein = safe_float(body.get("protein"))
+    carbs = safe_float(body.get("carbs"))
+    fat = safe_float(body.get("fat"))
+    serving_size = safe_float(body.get("serving_size"), 100.0)
+    serving_unit = body.get("serving_unit", "g").strip()
+
+    if not name:
+        return jsonify({"error": "Food name is required"}), 400
+
+    try:
+        food_id = add_custom_food(name, calories, protein, carbs, fat, serving_size, serving_unit)
+        new_food = get_custom_food_by_id(food_id)
+        return jsonify(new_food), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@nutrition_bp.route("/api/nutrition/custom-foods/<int:food_id>", methods=["DELETE"])
+def api_delete_custom_food(food_id):
+    """Delete a custom food."""
+    try:
+        delete_custom_food(food_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@nutrition_bp.route("/api/nutrition/recipes", methods=["GET"])
+def api_get_recipes():
+    """Retrieve all saved recipes."""
+    try:
+        recipes_list = get_recipes()
+        return jsonify(recipes_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@nutrition_bp.route("/api/nutrition/recipes", methods=["POST"])
+def api_add_recipe():
+    """Add a new recipe."""
+    body = request.json or {}
+    name = body.get("name", "").strip()
+    calories = safe_float(body.get("calories"))
+    protein = safe_float(body.get("protein"))
+    carbs = safe_float(body.get("carbs"))
+    fat = safe_float(body.get("fat"))
+    instructions = body.get("instructions", "").strip()
+    ingredients = body.get("ingredients", "").strip()
+
+    if not name:
+        return jsonify({"error": "Recipe name is required"}), 400
+
+    try:
+        recipe_id = add_recipe(name, calories, protein, carbs, fat, instructions, ingredients)
+        new_recipe = get_recipe_by_id(recipe_id)
+        return jsonify(new_recipe), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@nutrition_bp.route("/api/nutrition/recipes/<int:recipe_id>", methods=["DELETE"])
+def api_delete_recipe(recipe_id):
+    """Delete a recipe."""
+    try:
+        delete_recipe(recipe_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@nutrition_bp.route("/api/nutrition/recipes/estimate-macros", methods=["POST"])
+def api_estimate_recipe_macros():
+    """Estimate macros for a recipe name/ingredients using a fast free OpenRouter model."""
+    body = request.json or {}
+    ingredients = body.get("ingredients", "").strip()
+    recipe_name = body.get("name", "").strip()
+
+    if not ingredients:
+        return jsonify({"error": "Ingredients description is required"}), 400
+
+    api_key = get_setting("openrouter_api_key") or Config.OPENROUTER_API_KEY
+    if not api_key:
+        return jsonify({"error": "OpenRouter API Key not configured. Please add it in Settings."}), 400
+
+    prompt = f"""
+    You are an elite, highly precise nutrition parser. Estimate the sum total macronutrients (calories, protein, carbs, fat) 
+    for the following recipe/meal ingredients:
+    
+    Recipe Name: {recipe_name}
+    Ingredients: {ingredients}
+    
+    CRITICAL OUTPUT REQUIREMENT:
+    You MUST return exactly a JSON object (no markdown, no backticks, no other text) with the following fields:
+    - 'calories': Sum total calories as an integer (e.g. 450)
+    - 'protein': Sum total protein in grams as a float/number (e.g. 32.5)
+    - 'carbs': Sum total carbs in grams as a float/number (e.g. 45.0)
+    - 'fat': Sum total fat in grams as a float/number (e.g. 12.0)
+    
+    Ensure it is valid JSON and parses successfully with json.loads().
+    """
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": Config.BASE_URL,
+        "X-Title": "HealthTerminal",
+        "Content-Type": "application/json",
+    }
+    
+    payload = {
+        "model": "google/gemini-2.5-flash:free",
+        "messages": [
+            {"role": "system", "content": "You are a precise nutrition database formatter. Respond ONLY with a raw JSON object."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.0,
+        "max_tokens": 300
+    }
+
+    try:
+        resp = requests.post(Config.OPENROUTER_API_URL, headers=headers, json=payload, timeout=15)
+        if resp.status_code != 200:
+            payload["model"] = "meta-llama/llama-3.1-8b-instruct:free"
+            resp = requests.post(Config.OPENROUTER_API_URL, headers=headers, json=payload, timeout=15)
+
+        if resp.status_code != 200:
+            return jsonify({"error": f"OpenRouter API error: {resp.status_code}"}), resp.status_code
+
+        resp_json = resp.json()
+        ai_output = resp_json["choices"][0]["message"]["content"].strip()
+        
+        if ai_output.startswith("```"):
+            lines = ai_output.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            ai_output = "\n".join(lines).strip()
+
+        parsed_macros = json.loads(ai_output)
+        return jsonify({
+            "calories": round(safe_float(parsed_macros.get("calories"))),
+            "protein": round(safe_float(parsed_macros.get("protein")), 1),
+            "carbs": round(safe_float(parsed_macros.get("carbs")), 1),
+            "fat": round(safe_float(parsed_macros.get("fat")), 1)
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to estimate recipe macros: {str(e)}"}), 500
+

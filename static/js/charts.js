@@ -57,7 +57,9 @@ function renderWeeklyChart(activities) {
     const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     const now = new Date();
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay() + 1);
+    const dayOfWeek = now.getDay();
+    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    weekStart.setDate(diff);
     weekStart.setHours(0,0,0,0);
 
     const counts = new Array(7).fill(0);

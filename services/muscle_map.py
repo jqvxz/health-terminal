@@ -122,6 +122,7 @@ EXERCISE_MAP = {
     "tricep dip": {"primary": "Triceps", "secondary": ["Chest", "Shoulders"]},
     "tricep kickback": {"primary": "Triceps", "secondary": []},
     "diamond push up": {"primary": "Triceps", "secondary": ["Chest"]},
+    "jm press": {"primary": "Triceps", "secondary": []},
 
     # === Forearms ===
     "wrist curl": {"primary": "Forearms", "secondary": []},

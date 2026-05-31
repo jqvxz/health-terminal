@@ -62,8 +62,8 @@
     </div>
     <div class="form-group">
         <label class="form-label">API Key</label>
-        <input type="password" class="form-input" id="ninjaApiKeyInput" value="{{ settings.get('apininjas_api_key', '') }}"
-            placeholder="api-ninjas-key-...">
+        <input type="password" class="form-input" id="ninjaApiKeyInput"
+            value="{{ settings.get('apininjas_api_key', '') }}" placeholder="api-ninjas-key-...">
     </div>
     <div class="flex gap-8 items-center">
         <button class="btn btn-primary btn-sm" onclick="saveNinjaApiKey()">Save Key</button>
@@ -245,7 +245,7 @@
             </svg>
         </a>
     </div>
-    <div class="label-caps mt-16" style="color:var(--text-muted);">HealthTerminal V1.0 · Built with Flask + Chart.js
+    <div class="label-caps mt-16" style="color:var(--text-muted);">HealthTerminal V1.2 · Built with Flask + Chart.js
     </div>
 </div>
 {% endblock %}

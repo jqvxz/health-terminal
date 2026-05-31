@@ -165,6 +165,31 @@ def init_db():
                 created_at TEXT DEFAULT (datetime('now', 'localtime'))
             );
 
+            CREATE TABLE IF NOT EXISTS custom_foods (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                calories REAL NOT NULL,
+                protein REAL NOT NULL,
+                carbs REAL NOT NULL,
+                fat REAL NOT NULL,
+                serving_size REAL DEFAULT 100.0,
+                serving_unit TEXT DEFAULT 'g',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            );
+
+            CREATE TABLE IF NOT EXISTS recipes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                calories REAL NOT NULL,
+                protein REAL NOT NULL,
+                carbs REAL NOT NULL,
+                fat REAL NOT NULL,
+                instructions TEXT DEFAULT '',
+                ingredients TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            );
+
+
             -- Default settings
             INSERT OR IGNORE INTO settings (key, value) VALUES ('body_weight', '75');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('weight_unit', 'kg');
@@ -642,3 +667,66 @@ def increment_nutrition_api_usage():
             "ON CONFLICT(usage_date) DO UPDATE SET request_count = request_count + 1",
             (today,),
         )
+
+
+def get_custom_foods():
+    """Retrieve all custom foods ordered by name."""
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM custom_foods ORDER BY name").fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_custom_food_by_id(food_id):
+    """Retrieve a single custom food by its ID."""
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM custom_foods WHERE id = ?", (food_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def add_custom_food(name, calories, protein, carbs, fat, serving_size=100.0, serving_unit="g"):
+    """Add a new custom food to the database."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            """INSERT INTO custom_foods (name, calories, protein, carbs, fat, serving_size, serving_unit)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (name, calories, protein, carbs, fat, serving_size, serving_unit)
+        )
+        return cursor.lastrowid
+
+
+def delete_custom_food(food_id):
+    """Delete a custom food by ID."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM custom_foods WHERE id = ?", (food_id,))
+
+
+def get_recipes():
+    """Retrieve all recipes ordered by name."""
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM recipes ORDER BY name").fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_recipe_by_id(recipe_id):
+    """Retrieve a single recipe by its ID."""
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def add_recipe(name, calories, protein, carbs, fat, instructions="", ingredients=""):
+    """Add a new recipe to the database."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            """INSERT INTO recipes (name, calories, protein, carbs, fat, instructions, ingredients)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (name, calories, protein, carbs, fat, instructions, ingredients)
+        )
+        return cursor.lastrowid
+
+
+def delete_recipe(recipe_id):
+    """Delete a recipe by ID."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM recipes WHERE id = ?", (recipe_id,))
+
