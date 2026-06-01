@@ -1,4 +1,4 @@
-# HealthTerminal — V1
+# HealthTerminal — V1.2
 
 ## 1. Product / Program Description
 **Health Terminal** is the new version of the previously released program "HealthPanel". The program includes more functionality as well as a better UI. It utilizes Strava and Hevy to track and display fitness data. It is also built on a significantly more efficient and advanced backend system. The program runs locally on your machine, ensuring your data remains safe and secure. AI assistance is always optional and can be used for fitness, nutrition, and recovery insights by simply pressing a button or asking a specific question about your fitness, nutrition, or recovery. 
