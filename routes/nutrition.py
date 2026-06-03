@@ -936,6 +936,8 @@ def smart_search():
 
             # Seek help through the local DB / calorie tracker API pipeline!
             recommended = parse_single_ingredient(formatted_query)
+            if recommended and recommended.get("source") in ["api_error_placeholder", "missing_api_key_placeholder", "limit_reached_placeholder", "not_found_placeholder", "error_placeholder"]:
+                recommended = None
 
             # Build AI fallback estimate values
             ai_calories = round(float(item.get("calories", 0)))
@@ -943,6 +945,9 @@ def smart_search():
             ai_carbs = round(float(item.get("carbs", 0.0)), 1)
             ai_fat = round(float(item.get("fat", 0.0)), 1)
             ai_has_data = ai_calories > 0 or ai_protein > 0
+
+            # Fetch branded product alternatives from Open Food Facts using the clean query name
+            alternatives = _search_off_scored(food_name, limit=6)
 
             # Fall back to AI estimation if:
             # a) parse returned nothing / zero macros, OR
@@ -958,17 +963,29 @@ def smart_search():
             )
 
             if not recommended or (recommended.get("calories", 0) == 0 and recommended.get("protein", 0) == 0) or local_partial:
-                recommended = {
-                    "name": formatted_query,
-                    "calories": ai_calories,
-                    "protein": ai_protein,
-                    "carbs": ai_carbs,
-                    "fat": ai_fat,
-                    "source": "ai_estimation"
-                }
-
-            # Fetch branded product alternatives from Open Food Facts using the clean query name
-            alternatives = _search_off_scored(food_name, limit=6)
+                if ai_has_data:
+                    recommended = {
+                        "name": formatted_query,
+                        "calories": ai_calories,
+                        "protein": ai_protein,
+                        "carbs": ai_carbs,
+                        "fat": ai_fat,
+                        "source": "ai_estimation"
+                    }
+                elif alternatives:
+                    best = alternatives[0]
+                    factor = quantity / 100.0
+                    recommended = {
+                        "name": f"{round(quantity)}{unit} {best['name']}",
+                        "calories": round(best["calories_100g"] * factor),
+                        "protein": round(best["protein_100g"] * factor, 1),
+                        "carbs": round(best["carbs_100g"] * factor, 1),
+                        "fat": round(best["fat_100g"] * factor, 1),
+                        "source": "openfoodfacts",
+                    }
+                    alternatives = alternatives[1:]
+                else:
+                    recommended = None
 
             # Filter out alternatives duplicate
             if alternatives and recommended and recommended.get("source") == "openfoodfacts":
@@ -1006,6 +1023,8 @@ def smart_search():
                 food_name = part
 
             recommended = parse_single_ingredient(part)
+            if recommended and recommended.get("source") in ["api_error_placeholder", "missing_api_key_placeholder", "limit_reached_placeholder", "not_found_placeholder", "error_placeholder"]:
+                recommended = None
 
             # Open Food Facts alternatives
             alternatives = _search_off_scored(food_name, limit=6)

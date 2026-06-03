@@ -41,8 +41,14 @@
 
 <!-- Sessions Table -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
         <div class="card-title">Recent Sessions</div>
+        <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px;" onchange="loadLifting()">
+            <option value="15" selected>15</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+            <option value="-1">All time</option>
+        </select>
     </div>
     <div class="table-container">
         <table>
@@ -71,8 +77,9 @@ document.addEventListener('DOMContentLoaded', loadLifting);
 
 async function loadLifting() {
     try {
+        const limit = document.getElementById('recentLimit') ? document.getElementById('recentLimit').value : 15;
         const [activitiesRes, musclesRes, overviewRes] = await Promise.all([
-            fetch('/api/activities?type=lifting&limit=100'),
+            fetch(`/api/activities?type=lifting&limit=${limit}`),
             fetch('/api/stats/muscles?days=30'),
             fetch('/api/stats/overview')
         ]);
@@ -180,7 +187,8 @@ async function loadProgression() {
     emptyEl.classList.add('hidden');
 
     try {
-        const res = await fetch(`/api/activities?type=lifting&limit=100`);
+        const limit = document.getElementById('recentLimit') ? document.getElementById('recentLimit').value : 15;
+        const res = await fetch(`/api/activities?type=lifting&limit=${limit}`);
         const activities = await res.json();
         const points = [];
         for (const a of activities) {

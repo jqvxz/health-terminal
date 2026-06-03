@@ -86,7 +86,13 @@
 <div class="card mb-24">
     <div class="card-header">
         <div class="card-title">Recent Activities</div>
-        <div class="flex gap-8">
+        <div class="flex gap-8 items-center">
+            <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px; margin-right: 16px;" onchange="loadDashboard()">
+                <option value="15" selected>15</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="-1">All time</option>
+            </select>
             <button class="tab-btn active" onclick="filterRecent('all', this)">All</button>
             <button class="tab-btn" onclick="filterRecent('running', this)">Running</button>
             <button class="tab-btn" onclick="filterRecent('lifting', this)">Lifting</button>
@@ -239,9 +245,10 @@ async function loadNutrition() {
 
 async function loadDashboard() {
     try {
+        const limit = document.getElementById('recentLimit') ? document.getElementById('recentLimit').value : 15;
         const [statsRes, activitiesRes] = await Promise.all([
             fetch('/api/stats/weekly'),
-            fetch('/api/activities?limit=15')
+            fetch(`/api/activities?limit=${limit}`)
         ]);
         const stats = await statsRes.json();
         const activities = await activitiesRes.json();
