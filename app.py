@@ -82,6 +82,12 @@ def create_app():
     def mobile_page():
         return render_template("mobile.html")
 
+    @app.route("/media/<path:filename>")
+    def serve_media(filename):
+        from flask import send_from_directory
+        import os
+        return send_from_directory(os.path.join(app.root_path, "media"), filename)
+
     # Error handlers
     @app.errorhandler(404)
     def not_found(e):

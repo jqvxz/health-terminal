@@ -292,8 +292,64 @@
             user_age: document.getElementById('userAge').value,
             user_sex: document.getElementById('userSex').value,
         };
-        await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        showToast('Preferences saved', 'success');
+        try {
+            const res = await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            const resData = await res.json();
+            showToast('Preferences saved', 'success');
+            if (resData.bmi_exceeded) {
+                showBmiMotivationImage();
+            }
+        } catch (e) {
+            showToast('Error saving preferences', 'error');
+        }
+    }
+
+    function showBmiMotivationImage() {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
+        overlay.style.zIndex = '999999';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.cursor = 'pointer';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.4s ease-in-out';
+
+        const img = document.createElement('img');
+        img.src = '/media/weight_motivation.png';
+        img.style.maxWidth = '90vw';
+        img.style.maxHeight = '90vh';
+        img.style.objectFit = 'contain';
+        img.style.border = 'none';
+        img.style.background = 'transparent';
+        img.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        img.style.transform = 'scale(0.7)';
+
+        overlay.appendChild(img);
+        document.body.appendChild(overlay);
+
+        setTimeout(() => {
+            overlay.style.opacity = '1';
+            img.style.transform = 'scale(1)';
+        }, 50);
+
+        const dismiss = () => {
+            overlay.style.opacity = '0';
+            img.style.transform = 'scale(0.7)';
+            setTimeout(() => {
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            }, 400);
+        };
+
+        overlay.onclick = dismiss;
+        setTimeout(dismiss, 5000);
     }
 
     async function saveAppearance() {
