@@ -202,7 +202,7 @@ function renderMuscleRadar(muscles) {
                 borderColor: CHART_COLORS.accent,
                 backgroundColor: 'rgba(191,255,0,0.15)',
                 pointBackgroundColor: CHART_COLORS.accent,
-                pointRadius: 4, borderWidth: 2,
+                pointRadius: 0, borderWidth: 2,
             }],
         },
         options: {

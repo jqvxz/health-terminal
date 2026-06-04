@@ -6,7 +6,7 @@ Maps exercises to primary and secondary muscle groups.
 MUSCLE_GROUPS = [
     "Chest", "Back", "Shoulders", "Biceps", "Triceps",
     "Quadriceps", "Hamstrings", "Glutes", "Calves",
-    "Core", "Forearms", "Traps", "Lats"
+    "Core", "Forearms", "Traps", "Lats", "Abductors", "Adductors"
 ]
 
 EXERCISE_MAP = {
@@ -152,11 +152,12 @@ EXERCISE_MAP = {
     "good morning": {"primary": "Hamstrings", "secondary": ["Back", "Glutes"]},
     "nordic curl": {"primary": "Hamstrings", "secondary": []},
 
-    # === Glutes ===
+    # === Glutes, Abductors & Adductors ===
     "hip thrust": {"primary": "Glutes", "secondary": ["Hamstrings"]},
     "glute bridge": {"primary": "Glutes", "secondary": ["Hamstrings"]},
     "cable kickback": {"primary": "Glutes", "secondary": []},
-    "hip abduction": {"primary": "Glutes", "secondary": []},
+    "hip abduction": {"primary": "Abductors", "secondary": ["Glutes"]},
+    "hip adduction": {"primary": "Adductors", "secondary": []},
 
     # === Calves ===
     "calf raise": {"primary": "Calves", "secondary": []},
@@ -232,6 +233,8 @@ KEYWORD_RULES = [
     (["rdl"], "Hamstrings"),
     (["hip thrust"], "Glutes"),
     (["glute"], "Glutes"),
+    (["abductor", "abduction"], "Abductors"),
+    (["adductor", "adduction"], "Adductors"),
     (["calf", "calve"], "Calves"),
 
     # Core
