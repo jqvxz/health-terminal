@@ -357,6 +357,79 @@ def api_activity_streams(activity_id):
         print(f"Streams fetch error for {strava_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
+@strava_bp.route("/api/activities/<int:activity_id>/hr-fallback")
+def api_activity_hr_fallback(activity_id):
+    """
+    Fetch watch heart rate data for the timeframe of a Strava activity.
+    Used as a fallback when Strava did not record average_heartrate.
+    Returns avg, min, max BPM from health_heart_rate table within the
+    activity's [start_date, start_date + elapsed_time] window.
+    """
+    activity = get_activity_by_id(activity_id)
+    if not activity:
+        return jsonify({"error": "Not found"}), 404
+
+    # Only return fallback if Strava HR is missing or zero
+    if activity.get("average_heartrate") and activity["average_heartrate"] > 0:
+        return jsonify({"fallback": False, "reason": "Strava HR already present"})
+
+    start_date = activity.get("start_date") or activity.get("start_date_local")
+    elapsed = activity.get("elapsed_time") or activity.get("moving_time") or 0
+
+    if not start_date:
+        return jsonify({"fallback": False, "reason": "No start date"})
+
+    try:
+        from datetime import datetime, timedelta
+        # Parse the ISO start date — handle both with and without timezone suffix
+        start_str = start_date.replace("Z", "+00:00") if start_date.endswith("Z") else start_date
+        try:
+            start_dt = datetime.fromisoformat(start_str)
+        except ValueError:
+            # Fallback: strip timezone and parse naively
+            start_dt = datetime.fromisoformat(start_date[:19])
+
+        end_dt = start_dt + timedelta(seconds=elapsed)
+        # Store as ISO strings for SQLite comparison
+        start_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
+        end_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+        with get_db() as conn:
+            row = conn.execute(
+                """SELECT ROUND(AVG(bpm)) as avg_bpm,
+                          MIN(bpm) as min_bpm,
+                          MAX(bpm) as max_bpm,
+                          COUNT(*) as sample_count
+                   FROM health_heart_rate
+                   WHERE time >= ? AND time <= ?""",
+                (start_iso, end_iso),
+            ).fetchone()
+
+            if row and row["sample_count"] > 0:
+                series_rows = conn.execute(
+                    "SELECT bpm FROM health_heart_rate WHERE time >= ? AND time <= ? ORDER BY time",
+                    (start_iso, end_iso)
+                ).fetchall()
+                series_data = [r["bpm"] for r in series_rows]
+
+                return jsonify({
+                    "fallback": True,
+                    "avg_bpm": int(row["avg_bpm"]),
+                    "min_bpm": int(row["min_bpm"]),
+                    "max_bpm": int(row["max_bpm"]),
+                    "sample_count": row["sample_count"],
+                    "window_start": start_iso,
+                    "window_end": end_iso,
+                    "series": series_data
+                })
+            else:
+                return jsonify({"fallback": False, "reason": "No watch HR data in activity timeframe"})
+
+    except Exception as e:
+        print(f"HR fallback error for activity {activity_id}: {e}")
+        return jsonify({"fallback": False, "reason": str(e)}), 500
+
+
 @strava_bp.route("/api/stats/weekly")
 def api_weekly_stats():
     """Get weekly stats, optionally for a past week."""

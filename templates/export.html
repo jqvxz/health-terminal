@@ -4,166 +4,245 @@
 {% block content %}
 <div class="page-header">
     <h2>Export Data</h2>
-    <p>Download your activity data or generate a shareable stats image</p>
+    <p>Download your raw health data or generate a shareable stats image</p>
 </div>
 
-<!-- Export Options -->
-<div class="card mb-24">
-    <div class="card-header"><div class="card-title">Export Options</div></div>
+<style>
+    .period-btn-group {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg-l1);
+        overflow: hidden;
+    }
+    .period-btn-group button {
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 6px 14px !important;
+        transition: background 0.2s, color 0.2s;
+        flex: 1;
+    }
+    .period-btn-group button:not(:last-child) {
+        border-right: 1px solid var(--border) !important;
+    }
+    .period-btn-group button.active {
+        background: var(--bg-l2);
+        color: var(--text);
+        font-weight: 600;
+    }
+</style>
 
-    <div class="grid grid-2 mb-24">
-        <div class="form-group">
-            <label class="form-label">Format</label>
-            <select class="form-input" id="exportFormat">
-                <option value="csv">CSV (Spreadsheet)</option>
-                <option value="json">JSON (Developer)</option>
-            </select>
+<div class="grid grid-2 mb-24" style="align-items: stretch;">
+    <!-- Left Column: Export Filters -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="card">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;"><div class="card-title">Export Settings</div></div>
+
+            <div class="form-group">
+                <label class="form-label">Date Presets</label>
+                <div class="period-btn-group" style="width: 100%; display: flex;">
+                    <button id="preset-week" class="btn btn-ghost btn-sm" onclick="setDatePreset('week')">This Week</button>
+                    <button id="preset-30days" class="btn btn-ghost btn-sm" onclick="setDatePreset('30days')">Last 30 Days</button>
+                    <button id="preset-year" class="btn btn-ghost btn-sm" onclick="setDatePreset('year')">This Year</button>
+                    <button id="preset-all" class="btn btn-ghost btn-sm" onclick="setDatePreset('all')">All Time</button>
+                </div>
+            </div>
+
+            <div class="grid grid-2 mb-16">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" class="form-input" style="width: 100%;" id="exportStart" onchange="updateLiveSummary()">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">End Date</label>
+                    <input type="date" class="form-input" style="width: 100%;" id="exportEnd" onchange="updateLiveSummary()">
+                </div>
+            </div>
+
+            <div class="form-group mb-0">
+                <label class="form-label">Format</label>
+                <select class="form-input" style="width: 100%;" id="exportFormat">
+                    <option value="csv">CSV (Spreadsheet)</option>
+                    <option value="json">JSON (Developer)</option>
+                </select>
+            </div>
         </div>
-        <div class="form-group">
-            <label class="form-label">Activity Type</label>
-            <select class="form-input" id="exportType">
-                <option value="">All Activities</option>
-                <option value="running">Running Only</option>
-                <option value="lifting">Lifting Only</option>
-            </select>
+
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;"><div class="card-title">Downloads</div></div>
+            <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:20px;">Download your raw data based on the date range selected above.</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn btn-secondary flex justify-between items-center" style="width: 100%; padding: 12px 16px;" onclick="exportData('activities')">
+                    <div class="flex items-center gap-8">
+                        <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        <span>Activities</span>
+                    </div>
+                    <span style="font-size:0.6875rem; font-weight:600; color:var(--text-muted); letter-spacing:0.05em;">.CSV / JSON</span>
+                </button>
+                <button class="btn btn-secondary flex justify-between items-center" style="width: 100%; padding: 12px 16px;" onclick="exportData('lifting')">
+                    <div class="flex items-center gap-8">
+                        <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        <span>Lifting Logs</span>
+                    </div>
+                    <span style="font-size:0.6875rem; font-weight:600; color:var(--text-muted); letter-spacing:0.05em;">.CSV / JSON</span>
+                </button>
+                <button class="btn btn-secondary flex justify-between items-center" style="width: 100%; padding: 12px 16px;" onclick="exportData('nutrition')">
+                    <div class="flex items-center gap-8">
+                        <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        <span>Nutrition</span>
+                    </div>
+                    <span style="font-size:0.6875rem; font-weight:600; color:var(--text-muted); letter-spacing:0.05em;">.CSV</span>
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="grid grid-2 mb-24">
-        <div class="form-group">
-            <label class="form-label">Start Date</label>
-            <input type="date" class="form-input" id="exportStart">
+    <!-- Right Column: Live Summary & Share -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Live Summary -->
+        <div class="card" id="summaryCard">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 20px;">
+                <div class="card-title">Summary</div>
+                <span class="badge badge-accent" style="font-size:0.6rem;padding:2px 6px;">LIVE</span>
+            </div>
+            <div class="grid grid-3 mb-24" style="gap: 24px;">
+                <div>
+                    <div class="label-caps mb-8">Activities</div>
+                    <div class="stat-value" id="sumCount" style="margin-top:0;">0</div>
+                </div>
+                <div>
+                    <div class="label-caps mb-8">Distance</div>
+                    <div style="display: flex; align-items: baseline; gap: 6px;">
+                        <div class="stat-value" id="sumDist" style="margin-top:0;">0</div>
+                        <div class="stat-unit">km</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="label-caps mb-8">Time</div>
+                    <div style="display: flex; align-items: baseline; gap: 6px;">
+                        <div class="stat-value" id="sumTime" style="margin-top:0;">0</div>
+                        <div class="stat-unit">h</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-24">
+                <div class="label-caps mb-8">Date Range</div>
+                <div style="font-size:0.9375rem; color:var(--text-primary); font-weight:500;" id="sumRange">—</div>
+            </div>
+            <div>
+                <div class="label-caps mb-16">Activity Types</div>
+                <div id="sumTypes" class="flex gap-8" style="flex-wrap:wrap;"></div>
+            </div>
         </div>
-        <div class="form-group">
-            <label class="form-label">End Date</label>
-            <input type="date" class="form-input" id="exportEnd">
+
+        <!-- Share Image -->
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+                <div class="card-title">Share Your Stats</div>
+            </div>
+            <div class="form-group mb-20">
+                <label class="form-label">Custom Title (Optional)</label>
+                <input type="text" class="form-input" style="width: 100%;" id="shareTitle" placeholder="e.g. My 2026 Season" value="PERFORMANCE SUMMARY">
+            </div>
+            <div class="flex gap-8 mb-16">
+                <button class="btn btn-accent flex items-center justify-center" style="width: 100%; font-weight: 600;" onclick="generateShare()" id="shareBtn">
+                    <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right: 6px;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+                    Generate Image
+                </button>
+            </div>
+            <button class="btn btn-secondary flex justify-center hidden" style="width: 100%; margin-bottom: 16px;" onclick="downloadShareImage()" id="downloadShareBtn">
+                Download PNG
+            </button>
+            <div class="share-preview hidden" id="sharePreview" style="max-height:400px;overflow-y:auto;border-radius:var(--radius);border:1px solid var(--border);"></div>
         </div>
-    </div>
-
-    <div class="form-group">
-        <label class="flex items-center gap-8" style="cursor:pointer;">
-            <input type="checkbox" id="exportLifting" style="accent-color:var(--accent);">
-            <span class="form-label" style="margin-bottom:0;">Include lifting details (sets, reps, weight)</span>
-        </label>
-    </div>
-
-    <div class="flex gap-8 items-center">
-        <button class="btn btn-primary" onclick="exportData()">
-            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            Download Export
-        </button>
-        <button class="btn btn-ghost" onclick="previewData()">Preview Data</button>
-        <button class="btn btn-secondary" onclick="loadExportSummary()">Show Summary</button>
-    </div>
-</div>
-
-<!-- Export Summary -->
-<div class="card mb-24 hidden" id="summaryCard">
-    <div class="card-header">
-        <div class="card-title">Export Summary</div>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('summaryCard').classList.add('hidden')">Close</button>
-    </div>
-    <div class="grid grid-3">
-        <div><div class="label-caps">Activities</div><div class="data-lg" id="sumCount">0</div></div>
-        <div><div class="label-caps">Date Range</div><div class="data-md" id="sumRange">—</div></div>
-        <div><div class="label-caps">Total Distance</div><div class="data-lg" id="sumDist">0</div><div class="stat-unit">km</div></div>
-    </div>
-    <div class="grid grid-3 mt-16">
-        <div><div class="label-caps">Total Calories</div><div class="data-md" id="sumCal">0</div><div class="stat-unit">kcal</div></div>
-        <div><div class="label-caps">Total Time</div><div class="data-md" id="sumTime">0</div><div class="stat-unit">hours</div></div>
-        <div><div class="label-caps">Activity Types</div><div id="sumTypes" class="mt-8"></div></div>
-    </div>
-</div>
-
-<!-- Share Image -->
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">Share Your Stats</div>
-    </div>
-    <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:16px;">Generate a shareable stats image with your performance summary.</p>
-    <div class="flex gap-8 mb-16">
-        <button class="btn btn-accent" onclick="generateShare()" id="shareBtn">
-            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
-            Generate Image
-        </button>
-        <button class="btn btn-secondary hidden" onclick="downloadShareImage()" id="downloadShareBtn">
-            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            Download PNG
-        </button>
-    </div>
-    <div class="share-preview hidden" id="sharePreview"></div>
-</div>
-
-<!-- Preview -->
-<div class="card hidden" id="previewCard">
-    <div class="card-header">
-        <div class="card-title">Preview (<span id="previewCount">0</span> activities)</div>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('previewCard').classList.add('hidden')">Close</button>
-    </div>
-    <div class="table-container" style="max-height:400px;overflow-y:auto;">
-        <table>
-            <thead><tr><th>Date</th><th>Name</th><th>Type</th><th>Distance</th><th>Duration</th><th>Calories</th></tr></thead>
-            <tbody id="previewTable"></tbody>
-        </table>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+function setDatePreset(preset) {
+    ['week', '30days', 'year', 'all'].forEach(p => {
+        const btn = document.getElementById('preset-' + p);
+        if (btn) {
+            if (p === preset) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+
+    const startInput = document.getElementById('exportStart');
+    const endInput = document.getElementById('exportEnd');
+    const now = new Date();
+    endInput.value = now.toISOString().split('T')[0];
+
+    if (preset === 'week') {
+        const past = new Date(now);
+        past.setDate(past.getDate() - 7);
+        startInput.value = past.toISOString().split('T')[0];
+    } else if (preset === '30days') {
+        const past = new Date(now);
+        past.setDate(past.getDate() - 30);
+        startInput.value = past.toISOString().split('T')[0];
+    } else if (preset === 'year') {
+        startInput.value = `${now.getFullYear()}-01-01`;
+    } else if (preset === 'all') {
+        startInput.value = '';
+        endInput.value = '';
+    }
+    updateLiveSummary();
+}
+
 function getExportParams() {
     const format = document.getElementById('exportFormat').value;
-    const type = document.getElementById('exportType').value;
     const start = document.getElementById('exportStart').value;
     const end = document.getElementById('exportEnd').value;
-    const lifting = document.getElementById('exportLifting').checked;
     let params = [];
-    if (type) params.push(`type=${type}`);
     if (start) params.push(`start_date=${start}`);
     if (end) params.push(`end_date=${end}`);
-    if (lifting) params.push('include_lifting=true');
     return { format, query: params.length ? '?' + params.join('&') : '' };
 }
 
-function exportData() {
+function exportData(type) {
     const { format, query } = getExportParams();
-    window.location.href = `/api/export/${format}${query}`;
-    showToast(`Downloading ${format.toUpperCase()} export...`, 'success');
+    let endpoint = `/api/export/${type}/${format}`;
+    if (format === 'json' && type !== 'nutrition') {
+        // json endpoint handles both right now, but let's route them correctly
+        // We'll just use the old /api/export/json for all activities if they want JSON
+        endpoint = `/api/export/json${query}`;
+        if (type === 'nutrition') {
+            // we don't have nutrition json yet, let's just alert
+            showToast('JSON export for nutrition coming soon.', 'success');
+            return;
+        }
+    } else if (format === 'csv') {
+        endpoint = `/api/export/${type}/csv${query}`;
+    }
+
+    window.location.href = endpoint;
+    showToast(`Downloading ${type} ${format.toUpperCase()} export...`, 'success');
 }
 
-async function previewData() {
-    const { query } = getExportParams();
-    try {
-        const res = await fetch(`/api/activities${query || '?limit=50'}`);
-        const data = await res.json();
-        document.getElementById('previewCount').textContent = data.length;
-        document.getElementById('previewTable').innerHTML = data.map(a => {
-            const date = (a.start_date_local||'').substring(0,10);
-            const dist = a.distance ? (a.distance/1000).toFixed(1)+'km' : '—';
-            const dur = a.moving_time ? Math.round(a.moving_time/60)+'min' : '—';
-            return `<tr><td class="td-muted">${date}</td><td>${a.name||'—'}</td><td>${a.activity_type||'—'}</td><td class="data-mono">${dist}</td><td class="data-mono">${dur}</td><td class="data-mono">${a.calories?Math.round(a.calories):'—'}</td></tr>`;
-        }).join('');
-        document.getElementById('previewCard').classList.remove('hidden');
-    } catch(e) { showToast('Failed to load preview', 'error'); }
-}
-
-async function loadExportSummary() {
+async function updateLiveSummary() {
     const { query } = getExportParams();
     try {
         const res = await fetch(`/api/export/summary${query}`);
         const data = await res.json();
         document.getElementById('sumCount').textContent = data.count;
-        document.getElementById('sumRange').textContent = data.date_range || '—';
+        document.getElementById('sumRange').textContent = data.date_range || 'All Time';
         document.getElementById('sumDist').textContent = data.total_distance_km || 0;
-        document.getElementById('sumCal').textContent = data.total_calories || 0;
         document.getElementById('sumTime').textContent = data.total_hours || 0;
         const typesEl = document.getElementById('sumTypes');
         typesEl.innerHTML = Object.entries(data.types || {}).map(([t, c]) =>
-            `<span class="badge" style="margin:2px;">${t}: ${c}</span>`
+            `<span style="font-size:0.6875rem; font-weight:600; padding:6px 12px; background:var(--bg-l1); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-secondary); display:inline-flex; align-items:center;">${t.toUpperCase()} <span style="color:var(--text-primary); margin-left:6px; background:var(--bg-l2); padding:0px 6px; border-radius:10px;">${c}</span></span>`
         ).join('');
-        document.getElementById('summaryCard').classList.remove('hidden');
-    } catch(e) { showToast('Failed to load summary', 'error'); }
+    } catch(e) { console.error('Failed to update summary', e); }
 }
+
+// Initial load
+document.addEventListener("DOMContentLoaded", () => {
+    updateLiveSummary();
+});
 
 let shareCanvas = null;
 async function generateShare() {
@@ -171,8 +250,10 @@ async function generateShare() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Generating...';
     try {
+        const title = document.getElementById('shareTitle').value || 'PERFORMANCE SUMMARY';
         const res = await fetch('/api/export/share-data');
         const data = await res.json();
+        data.customTitle = title;
         shareCanvas = generateShareImage(data);
         const preview = document.getElementById('sharePreview');
         preview.innerHTML = '';

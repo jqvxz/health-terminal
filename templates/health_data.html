@@ -1,0 +1,1531 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Health Data{% endblock %}
+
+{% block content %}
+<style>
+    .health-container {
+    }
+
+    .sync-prompt {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        gap: 16px;
+    }
+
+    .sync-prompt-text {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .sync-prompt-text span {
+        color: var(--warning);
+    }
+
+    .health-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+
+    .chart-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    .chart-wrap {
+        height: 160px; /* Reduced fixed height for a more compact UI */
+        position: relative;
+        margin: 12px 0;
+    }
+
+    .card-top-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        margin-bottom: 4px;
+    }
+
+    @media (max-width: 992px) {
+        .health-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Icon wrapping matching the rest of the tabs exactly */
+    .health-card-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .health-card-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Color schemes matching other card headers */
+    .card-steps .health-card-icon-wrap { color: var(--accent); background: var(--accent-dim); border-color: rgba(191, 255, 0, 0.1); }
+    .card-sleep .health-card-icon-wrap { color: #A855F7; background: rgba(168, 85, 247, 0.08); border-color: rgba(168, 85, 247, 0.1); }
+    .card-heart .health-card-icon-wrap { color: #FF4444; background: rgba(255, 68, 68, 0.08); border-color: rgba(255, 68, 68, 0.1); }
+    .card-vitals .health-card-icon-wrap { color: #00D2FF; background: rgba(0, 210, 255, 0.08); border-color: rgba(0, 210, 255, 0.1); }
+
+    /* Custom hover outlines matching other tab aesthetics */
+    .chart-card:hover.card-readiness {
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.5), 0 0 1px var(--accent-dim) inset;
+    }
+
+    .no-data-tag {
+        font-size: 0.625rem;
+        background: rgba(191, 255, 0, 0.04);
+        border: 1px solid var(--accent-dim);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        color: var(--accent);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .metric-value-row {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 4px;
+        margin-top: 8px;
+    }
+
+    .placeholder-val {
+        font-family: var(--font);
+        font-variant-numeric: tabular-nums;
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .metric-unit {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .metric-subtitle {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+    }
+
+    .metric-details-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        /* Removed border-top to reduce visual clutter */
+        padding-top: 4px;
+        margin-top: auto;
+    }
+
+    .metric-detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .metric-detail-label {
+        font-size: 0.625rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+    }
+
+    .metric-detail-value {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Comparison styles matching progress tab */
+    .comp-bars { display: flex; flex-direction: column; gap: 8px; }
+    .comp-bar-row { display: flex; align-items: center; gap: 12px; }
+    .comp-bar-label { width: 44px; font-size: 0.625rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .comp-bar-track { flex: 1; height: 6px; background: var(--bg-l2); border-radius: 3px; position: relative; overflow: hidden; }
+    .comp-bar-fill { height: 100%; border-radius: 3px; transition: width 1s cubic-bezier(0.16, 1, 0.3, 1); position: absolute; left: 0; top: 0; }
+    .comp-bar-fill.previous { background: rgba(255, 255, 255, 0.15); }
+    .comp-bar-value { font-size: 0.75rem; font-variant-numeric: tabular-nums; font-weight: 600; width: 60px; text-align: right; white-space: nowrap; }
+    .comp-bar-value.current { color: var(--text); }
+    .comp-bar-value.previous { color: var(--text-muted); font-weight: 400; }
+
+    /* Steps Progress bar */
+    .progress-bar-container {
+        height: 6px;
+        background: var(--bg-l0);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-top: 12px;
+        margin-bottom: 8px;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Sleep phases graphic */
+    .sleep-phases-container {
+        margin: 12px 0;
+    }
+
+    .sleep-phase-track {
+        height: 18px;
+        background: var(--bg-l0);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        display: flex;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .sleep-phase-segment {
+        height: 100%;
+        transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .sleep-phase-legend {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 0.6875rem;
+        color: var(--text-secondary);
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .dot-awake { background: #FF9F00; }
+    .dot-rem { background: #00D2FF; }
+    .dot-light { background: #A855F7; }
+    .dot-deep { background: #3b82f6; }
+
+    /* Vitals List */
+    .vitals-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .vital-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 4px;
+        /* Removed border-bottom to reduce visual clutter */
+    }
+
+    .vital-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .vital-label {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+    }
+
+    .vital-value {
+        font-family: var(--font);
+        font-variant-numeric: tabular-nums;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+
+    .vital-value span {
+        font-size: 0.6875rem;
+        color: var(--text-secondary);
+        font-weight: 400;
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ── Timeframe Selector ── */
+    .timeframe-selector {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 4px;
+    }
+
+    .tf-pill {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 5px 12px;
+        border-radius: calc(var(--radius) - 2px);
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        white-space: nowrap;
+    }
+
+    .tf-pill:hover {
+        color: var(--text-primary);
+        background: var(--bg-l2);
+    }
+
+    .tf-pill.active {
+        background: var(--bg-l2);
+        color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-dim);
+    }
+
+    .page-header-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .page-header-row .page-header {
+        margin-bottom: 0;
+    }
+
+    /* HR view selector */
+    .hr-view-selector {
+        display: flex;
+        background: var(--bg-l0);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 2px;
+    }
+
+    .hr-view-selector .tf-pill {
+        padding: 4px 10px;
+        font-size: 0.65rem;
+    }
+
+    .hr-view-selector .tf-pill.active {
+        color: #FF4444;
+        box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
+    }
+
+    /* Scrollable daily pills */
+    .hr-day-selector {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 14px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+        /* Removed border-bottom to reduce visual clutter */
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+        transition: max-height 0.25s ease, opacity 0.2s ease, margin-bottom 0.25s ease;
+        max-height: 60px;
+        opacity: 1;
+    }
+
+    .hr-day-selector.collapsed {
+        visibility: hidden;
+        pointer-events: none;
+        opacity: 0;
+    }
+
+    .hr-day-selector::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .hr-day-selector::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+    }
+
+    .hr-day-pill {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--bg-l1);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .hr-day-pill:hover {
+        color: var(--text-primary);
+        background: var(--bg-l2);
+        border-color: #FF4444;
+    }
+
+    .hr-day-pill.active {
+        background: rgba(255, 68, 68, 0.08);
+        color: #FF4444;
+        border-color: #FF4444;
+        box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.1);
+    }
+
+    /* Horizontal zones legend below the chart */
+    .hr-zones-horizontal {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 14px;
+        padding: 10px 14px;
+        background: var(--bg-l0);
+        /* Removed border to reduce visual clutter */
+        border-radius: var(--radius);
+        flex-wrap: wrap;
+    }
+
+    .hr-zones-horizontal .legend-item {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .hr-zones-horizontal .legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .progress-stat-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .progress-stat-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .progress-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+
+    .progress-stat-card:nth-child(1):hover { border-color: var(--accent); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(191, 255, 0, 0.15) inset; }
+    .progress-stat-card:nth-child(2):hover { border-color: #A855F7; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(168, 85, 247, 0.15) inset; }
+    .progress-stat-card:nth-child(3):hover { border-color: #FF4444; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 68, 68, 0.15) inset; }
+    .progress-stat-card:nth-child(4):hover { border-color: #00D2FF; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 210, 255, 0.15) inset; }
+
+</style>
+
+<div class="health-container page-fade-in">
+    <div class="page-header-row">
+        <div class="page-header">
+            <h2>Health Data</h2>
+            <p>Physiological tracking &amp; sleep cycle analysis</p>
+        </div>
+    </div>
+
+    <!-- Sync Alert -->
+    <div class="sync-prompt" id="syncPrompt">
+        <div class="sync-prompt-text" id="syncPromptText">
+            Connect fitness wearables or health sync services to customize this board. Displaying demo dataset.
+        </div>
+        <div class="flex gap-8 items-center" id="syncPromptBtnGroup">
+            <button class="btn btn-secondary btn-sm btn-fixed-height hidden" id="syncNowBtn" onclick="pullHealthData()">
+                <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                SYNC
+            </button>
+            <a href="/settings#hc-webhook-section" class="btn btn-secondary btn-sm btn-fixed-height" id="syncPromptBtn" style="text-transform: uppercase;">
+                SETTINGS
+            </a>
+        </div>
+    </div>
+
+    <!-- Readiness Card -->
+    <div class="chart-card hidden mb-24 card-readiness" id="readinessCard" style="display: none;">
+        <div class="card-header">
+            <div class="card-title" style="color: var(--accent);">Performance & Readiness</div>
+        </div>
+        <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap; padding: 12px 0;">
+            <div style="text-align: center; min-width: 140px;">
+                <div style="font-size: 4rem; font-weight: 700; line-height: 1; letter-spacing: -0.04em;" id="readinessScore">—</div>
+                <div class="label-caps" style="margin-top: 12px; font-size: 0.85rem;" id="readinessStatus">Status</div>
+            </div>
+            <div style="flex: 1; min-width: 280px; border-left: 1px solid var(--border); padding-left: 32px;">
+                <div style="font-size: 1.1rem; font-weight: 500; margin-bottom: 16px; color: var(--text-primary);" id="readinessMsg">
+                    Fetching performance data...
+                </div>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; display: flex; flex-direction: column; gap: 8px;" id="readinessInsights">
+                    <!-- populated by JS -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="grid grid-4 mb-24">
+        <!-- Steps Top -->
+        <div class="progress-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Steps</span>
+                <div class="health-card-icon-wrap" style="color: var(--accent); background: var(--accent-dim); border-color: rgba(191, 255, 0, 0.1);">
+                    <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <circle cx="12" cy="12" r="6" />
+                        <circle cx="12" cy="12" r="2" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="topStepsToday">—</div>
+                <div class="stat-unit">steps today</div>
+            </div>
+        </div>
+
+        <!-- Sleep Top -->
+        <div class="progress-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Sleep Score</span>
+                <div class="health-card-icon-wrap" style="color: #A855F7; background: rgba(168, 85, 247, 0.08); border-color: rgba(168, 85, 247, 0.1);">
+                    <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="topSleepScore">—</div>
+                <div class="stat-unit">last night</div>
+            </div>
+        </div>
+
+        <!-- Heart Rate Top -->
+        <div class="progress-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Heart Rate</span>
+                <div class="health-card-icon-wrap" style="color: #FF4444; background: rgba(255, 68, 68, 0.08); border-color: rgba(255, 68, 68, 0.1);">
+                    <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="topHRCurrent" style="color: #FF4444;">—</div>
+                <div class="stat-unit">bpm (current / resting)</div>
+            </div>
+        </div>
+
+        <!-- Vitals Top -->
+        <div class="progress-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Body Temp</span>
+                <div class="health-card-icon-wrap" style="color: #00D2FF; background: rgba(0, 210, 255, 0.08); border-color: rgba(0, 210, 255, 0.1);">
+                    <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="topVitalTemp">—</div>
+                <div class="stat-unit">°C (latest reading)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Charts -->
+    <div class="grid grid-2 mb-24">
+<div class="chart-card card-steps">
+            <div class="card-header">
+                <div class="card-title">Steps</div>
+                <div class="flex items-center gap-8">
+                    <span class="no-data-tag" id="stepsDemoTag">No Data</span>
+                    <div class="health-card-icon-wrap">
+                        <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" />
+                            <circle cx="12" cy="12" r="6" />
+                            <circle cx="12" cy="12" r="2" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-top-content">
+                
+                <div class="metric-subtitle" id="stepsProgress">Awaiting data</div>
+
+                <div class="comp-bars" style="margin-top: 12px; margin-bottom: 8px;">
+                    <div class="comp-bar-row">
+                        <div class="comp-bar-label" style="color:var(--accent);">TODAY</div>
+                        <div class="comp-bar-track"><div class="comp-bar-fill" id="stepsBarToday" style="width:0%;background:var(--accent);"></div></div>
+                        <div class="comp-bar-value current" id="stepsValToday">—</div>
+                    </div>
+                    <div class="comp-bar-row">
+                        <div class="comp-bar-label">GOAL</div>
+                        <div class="comp-bar-track"><div class="comp-bar-fill previous" id="stepsBarGoal" style="width:0%;"></div></div>
+                        <div class="comp-bar-value previous" id="stepsValGoal">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-wrap">
+                <canvas id="stepsChart"></canvas>
+            </div>
+
+            <div class="metric-details-grid">
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Daily Goal</span>
+                    <span class="metric-detail-value" id="stepsGoal" style="color: var(--accent);">10,000</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Avg Steps</span>
+                    <span class="metric-detail-value" id="stepsAvg">—</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label" id="stepsWeeklyLabel">Weekly Total</span>
+                    <span class="metric-detail-value" id="stepsWeekly">—</span>
+                </div>
+            </div>
+        </div>
+
+        
+<div class="chart-card card-sleep">
+            <div class="card-header">
+                <div class="card-title">Sleep</div>
+                <div class="flex items-center gap-8">
+                    <span class="no-data-tag" id="sleepDemoTag" style="color:#A855F7; background:rgba(168,85,247,0.06); border-color:rgba(168,85,247,0.15)">No Data</span>
+                    <div class="health-card-icon-wrap">
+                        <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-top-content">
+                
+                <div class="metric-subtitle" id="sleepDuration">Awaiting data</div>
+
+                <div class="comp-bars" style="margin-top: 12px; margin-bottom: 8px;">
+                    <div class="comp-bar-row">
+                        <div class="comp-bar-label" style="color:#A855F7;">TODAY</div>
+                        <div class="comp-bar-track"><div class="comp-bar-fill" id="sleepBarToday" style="width:0%;background:#A855F7;"></div></div>
+                        <div class="comp-bar-value current" id="sleepValToday">—</div>
+                    </div>
+                    <div class="comp-bar-row">
+                        <div class="comp-bar-label">AVG</div>
+                        <div class="comp-bar-track"><div class="comp-bar-fill previous" id="sleepBarAvg" style="width:0%;"></div></div>
+                        <div class="comp-bar-value previous" id="sleepValAvg">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-wrap">
+                <canvas id="sleepChart"></canvas>
+            </div>
+
+            <div class="metric-details-grid">
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Deep Sleep</span>
+                    <span class="metric-detail-value" id="sleepDeep">—</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Sleep Debt</span>
+                    <span class="metric-detail-value" id="sleepDebt">—</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Restless</span>
+                    <span class="metric-detail-value" id="sleepRestless">—</span>
+                </div>
+            </div>
+        </div>
+
+        
+    </div>
+
+    <!-- Row 3: Charts -->
+    <div class="grid grid-2 mb-24">
+<div class="chart-card card-heart">
+            <div class="card-header">
+                <div class="card-title">Heart Rate</div>
+                <div class="flex items-center gap-8">
+                    <span class="no-data-tag" id="hrDemoTag" style="color:#FF4444; background:rgba(255,68,68,0.06); border-color:rgba(255,68,68,0.15)">No Data</span>
+                    <div class="health-card-icon-wrap">
+                        <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-top-content" style="min-height: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 4px;">
+                <div>
+                    
+                    <div class="metric-subtitle" id="hrSubtitle" style="margin-bottom: 2px;">Awaiting data</div>
+                </div>
+
+                <!-- View selector toggle -->
+                <div class="hr-view-selector" role="group" aria-label="Heart Rate View" style="margin-bottom: 2px;">
+                    <button class="tf-pill active" id="hrViewDailyBtn">Daily</button>
+                    <button class="tf-pill" id="hrViewTrendBtn">Trends</button>
+                </div>
+            </div>
+
+            <!-- Dynamic day selector row (visible in daily view) -->
+            <div id="hrDaySelectorRow" class="hr-day-selector collapsed">
+                <!-- populated dynamically by JS -->
+            </div>
+
+            <div class="chart-wrap">
+                <canvas id="heartRateChart"></canvas>
+            </div>
+
+            <!-- Sleek horizontal zones legend below the chart -->
+            <div class="hr-zones-horizontal">
+                <div class="legend-item"><span class="legend-dot" style="background: #FF4444;"></span>Z5 (180+)</div>
+                <div class="legend-item"><span class="legend-dot" style="background: #FF9F00;"></span>Z4 (160-180)</div>
+                <div class="legend-item"><span class="legend-dot" style="background: #BFFF00;"></span>Z3 (140-160)</div>
+                <div class="legend-item"><span class="legend-dot" style="background: #00D2FF;"></span>Z2 (120-140)</div>
+                <div class="legend-item"><span class="legend-dot" style="background: #475569;"></span>Z1 (&lt;120)</div>
+            </div>
+
+            <div class="metric-details-grid">
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label" id="hrRestingLabel">Resting HR</span>
+                    <span class="metric-detail-value" id="hrResting" style="color: #FF4444;">—</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label" id="hrMaxLabel">Max HR</span>
+                    <span class="metric-detail-value" id="hrMax">—</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label" id="hrAverageLabel">HRV (SDNN)</span>
+                    <span class="metric-detail-value" id="hrHRV">—</span>
+                </div>
+            </div>
+        </div>
+
+        
+<div class="chart-card card-vitals">
+            <div class="card-header">
+                <div class="card-title">Physiological Markers</div>
+                <div class="flex items-center gap-8">
+                    <span class="no-data-tag" id="vitalsDemoTag" style="color:#00D2FF; background:rgba(0,210,255,0.06); border-color:rgba(0,210,255,0.15)">No Data</span>
+                    <div class="health-card-icon-wrap">
+                        <svg class="health-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-top-content">
+                <div class="vitals-list">
+                    <div class="vital-row">
+                        <span class="vital-label">Body Temperature</span>
+                        <span class="vital-value" id="vitalTemp">— <span>°C</span></span>
+                    </div>
+                    <div class="vital-row">
+                        <span class="vital-label">VO₂ Max</span>
+                        <span class="vital-value" id="vitalVO2" style="color:#00D2FF;">— <span>ml/kg/min</span></span>
+                    </div>
+                    <div class="vital-row">
+                        <span class="vital-label">Blood Oxygen (SpO₂)</span>
+                        <span class="vital-value" id="vitalSpO2">— <span>%</span></span>
+                    </div>
+                    <div class="vital-row">
+                        <span class="vital-label">Respiratory Rate</span>
+                        <span class="vital-value" id="vitalRespRate">— <span>brpm</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-wrap">
+                <canvas id="vitalsChart"></canvas>
+            </div>
+
+            <div class="metric-details-grid">
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Temp Deviation</span>
+                    <span class="metric-detail-value" id="vitalTempDev">—</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Fitness Age</span>
+                    <span class="metric-detail-value" id="vitalFitnessAge">—</span>
+                </div>
+                <div class="metric-detail-item">
+                    <span class="metric-detail-label">Skin Temp</span>
+                    <span class="metric-detail-value" id="vitalSkinTemp">—</span>
+                </div>
+            </div>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Store chart instances for later updates
+    let stepsChartInstance, sleepChartInstance, hrChartInstance, vitalsChartInstance;
+
+    // ─── Timeframe State ──────────────────────────────────────
+    let currentDays = 7;
+
+    // Heart Rate state
+    let heartRateByDay = {};
+    let heartRateTrends = [];
+    let activeHRView = 'daily';
+    let activeHRDay = '';
+
+    // Bind Heart Rate view toggles
+    const viewDailyBtn = document.getElementById('hrViewDailyBtn');
+    const viewTrendBtn = document.getElementById('hrViewTrendBtn');
+    if (viewDailyBtn) {
+        viewDailyBtn.addEventListener('click', () => {
+            activeHRView = 'daily';
+            renderHRCard();
+        });
+    }
+    if (viewTrendBtn) {
+        viewTrendBtn.addEventListener('click', () => {
+            activeHRView = 'trend';
+            renderHRCard();
+        });
+    }
+
+    function renderHRCard() {
+        const dayRow = document.getElementById('hrDaySelectorRow');
+        const viewDailyBtn = document.getElementById('hrViewDailyBtn');
+        const viewTrendBtn = document.getElementById('hrViewTrendBtn');
+
+        if (activeHRView === 'daily') {
+            if (viewDailyBtn) viewDailyBtn.classList.add('active');
+            if (viewTrendBtn) viewTrendBtn.classList.remove('active');
+            if (dayRow) dayRow.classList.remove('collapsed');
+        } else {
+            if (viewDailyBtn) viewDailyBtn.classList.remove('active');
+            if (viewTrendBtn) viewTrendBtn.classList.add('active');
+            if (dayRow) dayRow.classList.add('collapsed');
+        }
+
+        if (activeHRView === 'daily') {
+            const daysAvailable = Object.keys(heartRateByDay).sort().reverse();
+            if (daysAvailable.length === 0) {
+                showHREmptyState();
+                return;
+            }
+            if (!activeHRDay || !heartRateByDay[activeHRDay]) {
+                activeHRDay = daysAvailable[0];
+            }
+
+            // Render Day pills
+            if (dayRow) {
+                dayRow.innerHTML = '';
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                daysAvailable.forEach(dayStr => {
+                    const dt = new Date(dayStr + 'T00:00:00');
+                    const dayLabel = dayNames[dt.getDay()] + ' ' + dt.getDate();
+                    const pill = document.createElement('button');
+                    pill.className = `hr-day-pill ${dayStr === activeHRDay ? 'active' : ''}`;
+                    pill.textContent = dayLabel;
+                    pill.onclick = () => {
+                        activeHRDay = dayStr;
+                        renderHRCard();
+                    };
+                    dayRow.appendChild(pill);
+                });
+            }
+
+            const readings = heartRateByDay[activeHRDay] || [];
+            const hrLabels = readings.map(r => r.local_time);
+            const hrData = readings.map(r => r.bpm);
+
+            const currentEl = document.getElementById('hrCurrent');
+            const subtitleEl = document.getElementById('hrSubtitle');
+            const restingEl = document.getElementById('hrResting');
+            const maxEl = document.getElementById('hrMax');
+            const hrvEl = document.getElementById('hrHRV');
+
+            const restingLabel = document.getElementById('hrRestingLabel');
+            const maxLabel = document.getElementById('hrMaxLabel');
+            const averageLabel = document.getElementById('hrAverageLabel');
+
+            if (restingLabel) restingLabel.textContent = "Resting HR";
+            if (maxLabel) maxLabel.textContent = "Max HR";
+            if (averageLabel) averageLabel.textContent = "Avg HR";
+
+            const maxBpm = hrData.length > 0 ? Math.max(...hrData) : 0;
+            const avgBpm = hrData.length > 0 ? Math.round(hrData.reduce((s,v)=>s+v, 0)/hrData.length) : 0;
+            
+            const dayTrend = heartRateTrends.find(t => t.day === activeHRDay);
+            const restingBpm = dayTrend ? dayTrend.resting_bpm : (hrData.length > 0 ? Math.min(...hrData) : 0);
+            const dailyHrv = dayTrend ? dayTrend.hrv : null;
+
+            if (hrData.length > 0) {
+                const lastBpm = hrData[hrData.length - 1];
+                if (currentEl) currentEl.textContent = lastBpm;
+                if (subtitleEl) subtitleEl.textContent = 'Detailed Heart Rate on ' + activeHRDay.substring(5);
+                if (restingEl) restingEl.textContent = restingBpm + ' bpm';
+                if (maxEl) maxEl.textContent = maxBpm + ' bpm';
+                if (hrvEl) {
+                    if (dailyHrv) {
+                        if (averageLabel) averageLabel.textContent = "HRV (RMSSD)";
+                        hrvEl.textContent = Math.round(dailyHrv) + ' ms';
+                    } else {
+                        hrvEl.textContent = avgBpm + ' bpm';
+                    }
+                }
+            } else {
+                if (currentEl) currentEl.textContent = '—';
+                if (subtitleEl) subtitleEl.textContent = 'No data for this day';
+                if (restingEl) restingEl.textContent = '—';
+                if (maxEl) maxEl.textContent = '—';
+                if (hrvEl) hrvEl.textContent = '—';
+            }
+
+            if (hrChartInstance) hrChartInstance.destroy();
+            const hrCtx = document.getElementById('heartRateChart').getContext('2d');
+            hrChartInstance = new Chart(hrCtx, {
+                type: 'line',
+                data: {
+                    labels: hrLabels,
+                    datasets: [{
+                        data: hrData,
+                        borderColor: '#FF4444',
+                        backgroundColor: 'rgba(255, 68, 68, 0.08)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 10,
+                        pointBackgroundColor: '#FF4444'
+                    }]
+                },
+                options: {
+                    ...CHART_DEFAULTS,
+                    scales: {
+                        x: {
+                            ...CHART_DEFAULTS.scales.x,
+                            grid: { display: false },
+                            ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: 8 }
+                        },
+                        y: {
+                            ...CHART_DEFAULTS.scales.y,
+                            ticks: { ...CHART_DEFAULTS.scales.y.ticks, stepSize: 20 },
+                            title: { display: true, text: 'bpm', color: CHART_COLORS.grey, font: { size: 10, family: "'Geist', sans-serif" } }
+                        }
+                    }
+                }
+            });
+        } else {
+            if (heartRateTrends.length === 0) {
+                showHREmptyState();
+                return;
+            }
+
+            const trendLabels = heartRateTrends.map(t => t.day.substring(5));
+            const maxData = heartRateTrends.map(t => t.max_bpm);
+            const restingData = heartRateTrends.map(t => t.resting_bpm);
+            const avgData = heartRateTrends.map(t => t.avg_bpm);
+
+            const currentEl = document.getElementById('hrCurrent');
+            const subtitleEl = document.getElementById('hrSubtitle');
+            const restingEl = document.getElementById('hrResting');
+            const maxEl = document.getElementById('hrMax');
+            const hrvEl = document.getElementById('hrHRV');
+
+            const restingLabel = document.getElementById('hrRestingLabel');
+            const maxLabel = document.getElementById('hrMaxLabel');
+            const averageLabel = document.getElementById('hrAverageLabel');
+
+            if (restingLabel) restingLabel.textContent = "Avg Resting";
+            if (maxLabel) maxLabel.textContent = "Avg Max";
+            if (averageLabel) averageLabel.textContent = "Avg HRV";
+
+            const validResting = restingData.filter(v => v > 0);
+            const validMax = maxData.filter(v => v > 0);
+            const avgResting = validResting.length > 0 ? Math.round(validResting.reduce((s,v)=>s+v, 0)/validResting.length) : 0;
+            const avgMax = validMax.length > 0 ? Math.round(validMax.reduce((s,v)=>s+v, 0)/validMax.length) : 0;
+            
+            const hrvVals = heartRateTrends.map(t => t.hrv).filter(v => v !== null);
+            const avgHrv = hrvVals.length > 0 ? Math.round(hrvVals.reduce((s,v)=>s+v, 0)/hrvVals.length) : 0;
+
+            if (currentEl) currentEl.textContent = avgResting || '—';
+            if (subtitleEl) subtitleEl.textContent = 'Avg Resting Heart Rate';
+            if (restingEl) restingEl.textContent = (avgResting ? avgResting + ' bpm' : '—');
+            if (maxEl) maxEl.textContent = (avgMax ? avgMax + ' bpm' : '—');
+            if (hrvEl) {
+                if (avgHrv > 0) {
+                    hrvEl.textContent = avgHrv + ' ms';
+                } else {
+                    if (averageLabel) averageLabel.textContent = "Avg BPM";
+                    const validAvg = avgData.filter(v => v > 0);
+                    const overallAvg = validAvg.length > 0 ? Math.round(validAvg.reduce((s,v)=>s+v, 0)/validAvg.length) : 0;
+                    hrvEl.textContent = overallAvg ? overallAvg + ' bpm' : '—';
+                }
+            }
+
+            if (hrChartInstance) hrChartInstance.destroy();
+            const hrCtx = document.getElementById('heartRateChart').getContext('2d');
+            hrChartInstance = new Chart(hrCtx, {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        {
+                            label: 'Max HR',
+                            data: maxData,
+                            borderColor: '#FF4444',
+                            backgroundColor: 'rgba(255, 68, 68, 0.05)',
+                            fill: false,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#FF4444'
+                        },
+                        {
+                            label: 'Resting HR',
+                            data: restingData,
+                            borderColor: '#00D2FF',
+                            backgroundColor: 'rgba(0, 210, 255, 0.05)',
+                            fill: false,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#00D2FF'
+                        }
+                    ]
+                },
+                options: {
+                    ...CHART_DEFAULTS,
+                    plugins: {
+                        ...CHART_DEFAULTS.plugins,
+                        legend: { display: true, labels: { color: CHART_COLORS.grey, font: { size: 10, family: "'Geist', sans-serif" } } }
+                    },
+                    scales: {
+                        x: {
+                            ...CHART_DEFAULTS.scales.x,
+                            grid: { display: false }
+                        },
+                        y: {
+                            ...CHART_DEFAULTS.scales.y,
+                            ticks: { ...CHART_DEFAULTS.scales.y.ticks, stepSize: 20 },
+                            title: { display: true, text: 'bpm', color: CHART_COLORS.grey, font: { size: 10, family: "'Geist', sans-serif" } }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function showHREmptyState() {
+        const currentEl = document.getElementById('hrCurrent');
+        const subtitleEl = document.getElementById('hrSubtitle');
+        const restingEl = document.getElementById('hrResting');
+        const maxEl = document.getElementById('hrMax');
+        const hrvEl = document.getElementById('hrHRV');
+
+        if (currentEl) currentEl.textContent = '—';
+        if (subtitleEl) subtitleEl.textContent = 'No heart rate data logged';
+        if (restingEl) restingEl.textContent = '—';
+        if (maxEl) maxEl.textContent = '—';
+        if (hrvEl) hrvEl.textContent = '—';
+
+        if (hrChartInstance) {
+            hrChartInstance.destroy();
+            hrChartInstance = null;
+        }
+    }
+
+    // ─── Load Real Data ───────────────────────────────────────
+    loadRealHealthData(currentDays);
+
+    // Expose setTimeframe globally so onclick handlers can call it
+    window.setTimeframe = function(btn) {
+        document.querySelectorAll('.tf-pill').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        currentDays = parseInt(btn.dataset.days, 10);
+        loadRealHealthData(currentDays);
+    };
+
+    async function loadRealHealthData(days) {
+        try {
+            const res = await fetch(`/api/health-connect/data?days=${days}`);
+            const d = await res.json();
+            if (!d.has_data) return; // Keep demo data
+
+            // Hide demo tags
+            ['stepsDemoTag', 'sleepDemoTag', 'hrDemoTag', 'vitalsDemoTag'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            // Update sync prompt
+            const promptText = document.getElementById('syncPromptText');
+            const promptBtn = document.getElementById('syncPromptBtn');
+            const syncNowBtn = document.getElementById('syncNowBtn');
+
+            if (d.last_sync) {
+                promptText.textContent = 'Health Connect synced · Last update: ' + timeAgo(d.last_sync);
+            } else {
+                promptText.textContent = 'Health Connect enabled · No sync yet';
+            }
+            promptBtn.textContent = 'SETTINGS';
+            if (syncNowBtn) syncNowBtn.classList.remove('hidden');
+
+            // ── Readiness ──
+            if (d.readiness) {
+                const rCard = document.getElementById('readinessCard');
+                if (rCard) {
+                    rCard.style.display = 'block';
+                    rCard.classList.remove('hidden');
+                    
+                    const scoreEl = document.getElementById('readinessScore');
+                    const statusEl = document.getElementById('readinessStatus');
+                    const msgEl = document.getElementById('readinessMsg');
+                    const insightsEl = document.getElementById('readinessInsights');
+                    
+                    scoreEl.textContent = d.readiness.score;
+                    statusEl.textContent = d.readiness.status;
+                    msgEl.textContent = d.readiness.message;
+                    
+                    // Colors based on score
+                    let color = '#FF4444'; // Poor
+                    if (d.readiness.score >= 90) color = '#00D2FF'; // Excellent
+                    else if (d.readiness.score >= 70) color = 'var(--accent)'; // Good
+                    else if (d.readiness.score >= 40) color = '#FF9F00'; // Moderate
+                    
+                    scoreEl.style.color = color;
+                    statusEl.style.color = color;
+                    
+                    insightsEl.innerHTML = '';
+                    d.readiness.insights.forEach(ins => {
+                        const li = document.createElement('li');
+                        li.innerHTML = '<span style="color:var(--accent); margin-right:8px;">•</span>' + ins;
+                        insightsEl.appendChild(li);
+                    });
+                }
+            }
+
+            // ── Steps ──
+            if (d.steps_today !== undefined) {
+                const el = document.getElementById('stepsToday');
+                if (el) el.textContent = d.steps_today.toLocaleString();
+
+                const pct = Math.min(100, (d.steps_today / d.steps_goal) * 100);
+                const progEl = document.getElementById('stepsProgress');
+                if (days <= 1) {
+                    if (progEl) progEl.textContent = Math.round(pct) + '% of daily goal';
+                } else {
+                    if (progEl) progEl.textContent = 'Today: ' + Math.round(pct) + '% of daily goal';
+                }
+                const bt = document.getElementById('stepsBarToday');
+                const bg = document.getElementById('stepsBarGoal');
+                if (bt) {
+                    bt.style.width = '0%'; bg.style.width = '0%';
+                    document.getElementById('stepsValToday').textContent = d.steps_today.toLocaleString();
+                    document.getElementById('stepsValGoal').textContent = d.steps_goal.toLocaleString();
+                    setTimeout(() => {
+                        const maxVal = Math.max(d.steps_today, d.steps_goal, 1);
+                        bt.style.width = ((d.steps_today/maxVal)*100) + '%';
+                        bg.style.width = ((d.steps_goal/maxVal)*100) + '%';
+                    }, 100);
+                    // Update main top stats
+                const topStepsEl = document.getElementById('topStepsToday');
+                if (topStepsEl) topStepsEl.textContent = d.steps_today.toLocaleString();
+                const topHrEl = document.getElementById('topHRCurrent');
+                if (topHrEl) {
+                    let displayBpm = d.hr_today_current;
+                    if (!displayBpm && d.heart_rate_by_day) {
+                        const allDays = Object.keys(d.heart_rate_by_day).sort();
+                        if (allDays.length > 0) {
+                            const lastDayStr = allDays[allDays.length - 1];
+                            const lastDayData = d.heart_rate_by_day[lastDayStr];
+                            if (lastDayData && lastDayData.length > 0) {
+                                displayBpm = lastDayData[lastDayData.length - 1].bpm;
+                            }
+                        }
+                    }
+                    topHrEl.textContent = displayBpm || '—';
+                }
+                }
+
+                const goalEl = document.getElementById('stepsGoal');
+                if (goalEl) goalEl.textContent = d.steps_goal.toLocaleString();
+                const avgEl = document.getElementById('stepsAvg');
+                if (avgEl) avgEl.textContent = (d.steps_avg || 0).toLocaleString();
+
+                // Period total (label adapts to timeframe)
+                const periodTotal = d.steps.reduce((s, r) => s + (r.total_steps > 15 ? r.total_steps : 0), 0);
+                const weekEl = document.getElementById('stepsWeekly');
+                const weekLabelEl = document.getElementById('stepsWeeklyLabel');
+                if (weekEl) weekEl.textContent = periodTotal.toLocaleString();
+                if (weekLabelEl) {
+                    if (days <= 1) weekLabelEl.textContent = 'Today Total';
+                    else if (days <= 7) weekLabelEl.textContent = 'Weekly Total';
+                    else if (days <= 30) weekLabelEl.textContent = 'Monthly Total';
+                    else weekLabelEl.textContent = 'Period Total';
+                }
+            }
+
+            if (d.steps && d.steps.length > 0) {
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const labels = d.steps.map(s => {
+                    if (days <= 7) {
+                        const dt = new Date(s.day + 'T00:00:00');
+                        return dayNames[dt.getDay()];
+                    }
+                    return s.day.substring(5); // MM-DD
+                });
+                const data = d.steps.map(s =>
+                    (s.total_steps <= 15) ? null : s.total_steps
+                );
+
+                if (stepsChartInstance) stepsChartInstance.destroy();
+                const stepsCtx = document.getElementById('stepsChart').getContext('2d');
+                stepsChartInstance = new Chart(stepsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            borderColor: CHART_COLORS.accent,
+                            backgroundColor: 'rgba(191,255,0,0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: CHART_COLORS.accent
+                        }]
+                    },
+                    options: {
+                        ...CHART_DEFAULTS,
+                        scales: {
+                            x: { ...CHART_DEFAULTS.scales.x, grid: { display: false } },
+                            y: { ...CHART_DEFAULTS.scales.y, ticks: { ...CHART_DEFAULTS.scales.y.ticks, stepSize: 4000 } }
+                        }
+                    }
+                });
+            }
+
+            // ── Sleep ──
+            const scoreEl = document.getElementById('topSleepScore');
+            const durEl = document.getElementById('sleepDuration');
+            const deepEl = document.getElementById('sleepDeep');
+            const restlessEl = document.getElementById('sleepRestless');
+            const debtEl = document.getElementById('sleepDebt');
+
+            if (d.sleep && d.sleep.length > 0) {
+                const latest = d.sleep[0]; // most recent
+                if (scoreEl) scoreEl.textContent = Math.round(latest.sleep_score);
+
+                const hrs = Math.floor(latest.duration_seconds / 3600);
+                const mins = Math.round((latest.duration_seconds % 3600) / 60);
+                if (durEl) durEl.textContent = `Duration: ${hrs} hrs ${mins} min`;
+
+                // Phases
+                if (latest.stages && latest.stages.length > 0) {
+                    const totalS = latest.stages.reduce((s, st) => s + (st.duration_seconds || 0), 0) || 1;
+                    let awake = 0, rem = 0, light = 0, deep = 0;
+                    latest.stages.forEach(st => {
+                        const code = String(st.stage || '');
+                        const dur = st.duration_seconds || 0;
+                        if (code === '5') deep += dur;
+                        else if (code === '6') rem += dur;
+                        else if (code === '1' || code === '3') awake += dur;
+                        else light += dur;
+                    });
+                    const sbt = document.getElementById('sleepBarToday');
+                    const sba = document.getElementById('sleepBarAvg');
+                    if (sbt) {
+                        const avgH = d.sleep_duration_avg || 8;
+                        const todayH = (totalS / 3600);
+                        const maxSleep = Math.max(todayH, avgH, 1);
+                        sbt.style.width = '0%'; sba.style.width = '0%';
+                        document.getElementById('sleepValToday').textContent = todayH.toFixed(1) + ' hr';
+                        document.getElementById('sleepValAvg').textContent = avgH.toFixed(1) + ' hr';
+                        setTimeout(() => {
+                            sbt.style.width = ((todayH / maxSleep) * 100) + '%';
+                            sba.style.width = ((avgH / maxSleep) * 100) + '%';
+                        }, 100);
+                    }
+
+                    if (deepEl) deepEl.textContent = Math.round(deep / totalS * 100) + ' %';
+                    
+                    if (restlessEl) {
+                        const restlessPct = Math.round((awake / totalS) * 100);
+                        restlessEl.textContent = restlessPct + '%';
+                    }
+                }
+
+                // Sleep chart
+                const sleepDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const sleepSlice = days <= 7 ? d.sleep.slice(0, 7) : d.sleep.slice(0, Math.min(d.sleep.length, 30));
+                const sleepLabels = sleepSlice.reverse().map(s => {
+                    if (days <= 7) {
+                        const dt = new Date(s.session_end_time);
+                        return sleepDayNames[dt.getDay()];
+                    }
+                    return s.session_end_time.substring(5, 10);
+                });
+                const sleepData = sleepSlice.map(s => s.duration_hours);
+
+                if (sleepChartInstance) sleepChartInstance.destroy();
+                const sleepCtx = document.getElementById('sleepChart').getContext('2d');
+                sleepChartInstance = new Chart(sleepCtx, {
+                    type: 'line',
+                    data: {
+                        labels: sleepLabels,
+                        datasets: [{
+                            data: sleepData,
+                            borderColor: '#A855F7',
+                            backgroundColor: 'rgba(168,85,247,0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#A855F7'
+                        }]
+                    },
+                    options: {
+                        ...CHART_DEFAULTS,
+                        scales: {
+                            x: { ...CHART_DEFAULTS.scales.x, grid: { display: false } },
+                            y: {
+                                ...CHART_DEFAULTS.scales.y,
+                                ticks: { ...CHART_DEFAULTS.scales.y.ticks, stepSize: 3 },
+                                title: { display: true, text: 'hours', color: CHART_COLORS.grey, font: { size: 10, family: "'Geist', sans-serif" } }
+                            }
+                        }
+                    }
+                });
+
+                // Avg sleep duration debt
+                if (debtEl) {
+                    const avgH = d.sleep_duration_avg;
+                    const debt = Math.max(0, 8 - avgH);
+                    debtEl.textContent = debt > 0 ? debt.toFixed(1) + ' hr' : 'None';
+                }
+            } else {
+                if (scoreEl) scoreEl.textContent = '—';
+                if (durEl) durEl.textContent = 'No sleep logged';
+                if (deepEl) deepEl.textContent = '—';
+                if (restlessEl) restlessEl.textContent = '—';
+                if (debtEl) debtEl.textContent = '—';
+
+                ['sleepBarToday', 'sleepBarAvg'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.width = '0%';
+                });
+
+                if (sleepChartInstance) {
+                    sleepChartInstance.destroy();
+                    sleepChartInstance = null;
+                }
+            }
+
+            // ── Heart Rate ──
+            heartRateByDay = d.heart_rate_by_day || {};
+            heartRateTrends = d.heart_rate_trends || [];
+            
+            // Render Heart Rate card initially
+            renderHRCard();
+
+            // ── Vitals ──
+            const addEst = (isEst) => isEst ? ' <span style="font-size: 0.75rem; color: #888; font-weight: normal; margin-left: 4px;">(estimated)</span>' : '';
+            
+            if (d.body_temp) {
+                const topTempEl = document.getElementById('topVitalTemp');
+                if (topTempEl) topTempEl.textContent = d.body_temp.celsius.toFixed(1);
+                
+                const el = document.getElementById('vitalTemp');
+                if (el) el.innerHTML = d.body_temp.celsius.toFixed(1) + ' <span>°C</span>' + addEst(d.body_temp.estimated);
+            }
+            if (d.vo2max) {
+                const el = document.getElementById('vitalVO2');
+                if (el) el.innerHTML = d.vo2max.value.toFixed(1) + ' <span>ml/kg/min</span>' + addEst(d.vo2max.estimated);
+            }
+            if (d.oxygen_saturation) {
+                const el = document.getElementById('vitalSpO2');
+                if (el) el.innerHTML = d.oxygen_saturation.percentage.toFixed(1) + ' <span>%</span>' + addEst(d.oxygen_saturation.estimated);
+            }
+            if (d.respiratory_rate) {
+                const el = document.getElementById('vitalRespRate');
+                if (el) el.innerHTML = d.respiratory_rate.rate.toFixed(1) + ' <span>brpm</span>' + addEst(d.respiratory_rate.estimated);
+            }
+            if (d.temp_deviation) {
+                const el = document.getElementById('vitalTempDev');
+                if (el) {
+                    const sign = d.temp_deviation.celsius > 0 ? '+' : '';
+                    el.innerHTML = sign + d.temp_deviation.celsius.toFixed(2) + ' °C' + addEst(d.temp_deviation.estimated);
+                }
+            }
+
+            // VO2 Max trend chart
+            if (d.vo2max_history && d.vo2max_history.length > 0) {
+                const labels = d.vo2max_history.map((v, i) => {
+                    if (v.time) {
+                        const dt = new Date(v.time);
+                        return (dt.getMonth()+1) + '/' + dt.getDate();
+                    }
+                    return 'Wk ' + (i + 1);
+                });
+                const vitalsData = d.vo2max_history.map(v => v.value);
+
+                if (vitalsChartInstance) vitalsChartInstance.destroy();
+                const vitalsCtx = document.getElementById('vitalsChart').getContext('2d');
+                vitalsChartInstance = new Chart(vitalsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: vitalsData,
+                            borderColor: '#00D2FF',
+                            backgroundColor: 'rgba(0, 210, 255, 0.08)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            pointBackgroundColor: '#00D2FF'
+                        }]
+                    },
+                    options: {
+                        ...CHART_DEFAULTS,
+                        scales: {
+                            x: { ...CHART_DEFAULTS.scales.x, grid: { display: false } },
+                            y: {
+                                ...CHART_DEFAULTS.scales.y,
+                                ticks: { ...CHART_DEFAULTS.scales.y.ticks, stepSize: 0.5 },
+                                title: { display: true, text: 'ml/kg/min', color: CHART_COLORS.grey, font: { size: 10, family: "'Geist', sans-serif" } }
+                            }
+                        }
+                    }
+                });
+            }
+
+        } catch (e) {
+            console.error('Health data load error:', e);
+        }
+    }
+});
+
+async function pullHealthData() {
+    const btn = document.getElementById('syncNowBtn');
+    const origText = btn.textContent;
+    btn.textContent = 'Syncing...';
+    btn.disabled = true;
+    try {
+        const [stravaRes, hcRes] = await Promise.allSettled([
+            fetch('/api/sync'),
+            fetch('/api/health-connect/sync', { method: 'POST' })
+        ]);
+
+        let messages = [];
+        let hasError = false;
+
+        if (stravaRes.status === 'fulfilled') {
+            const data = await stravaRes.value.json();
+            if (data.error) {
+                hasError = true;
+                messages.push('Strava: ' + data.error);
+            } else {
+                messages.push('Strava synced');
+            }
+        } else {
+            hasError = true;
+            messages.push('Strava sync failed');
+        }
+
+        if (hcRes.status === 'fulfilled') {
+            const data = await hcRes.value.json();
+            if (data.error) {
+                if (!data.error.includes('not enabled')) {
+                    hasError = true;
+                    messages.push('Health: ' + data.error);
+                }
+            } else {
+                messages.push(`Health: Pulled ${data.records_saved} records`);
+            }
+        } else {
+            hasError = true;
+            messages.push('Health sync failed');
+        }
+
+        if (hasError && messages.length > 0) {
+            showToast(messages.join(' | '), 'error');
+        } else {
+            showToast(messages.join(' | '), 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        }
+    } catch (e) {
+        showToast('Network error during sync', 'error');
+    } finally {
+        btn.textContent = origText;
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

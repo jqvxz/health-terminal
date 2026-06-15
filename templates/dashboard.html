@@ -2,190 +2,456 @@
 {% block title_suffix %} — Dashboard{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <div class="flex justify-between items-center">
-        <div>
-            <h2>Dashboard</h2>
-            <p>Your performance overview</p>
-        </div>
-        <div class="flex gap-8 items-center">
-            {% if settings.get('strava_connected') == '1' %}
-            <span class="label-caps" id="lastSyncLabel" style="color:var(--text-muted);"></span>
-            <button class="btn btn-secondary btn-sm" onclick="syncActivities()" id="syncBtn">
-                <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                Sync
-            </button>
-            {% else %}
-            <a href="/auth/strava" class="btn btn-accent btn-sm">Connect Strava</a>
-            {% endif %}
-        </div>
-    </div>
-</div>
+<style>
+    .dashboard-container {
+    }
 
-<div class="grid grid-4 mb-24" id="statsGrid">
-    <div class="card">
-        <div class="card-title">Total Activities</div>
-        <div class="stat-value" id="statTotal">—</div>
-        <div class="stat-unit">this week</div>
-    </div>
-    <div class="card">
-        <div class="card-title">Distance</div>
-        <div class="stat-value" id="statDistance">—</div>
-        <div class="stat-unit">km this week</div>
-    </div>
-    <div class="card">
-        <div class="card-title">Calories Burned</div>
-        <div class="stat-value" id="statCalories">—</div>
-        <div class="stat-unit">kcal this week</div>
-    </div>
-    <div class="card">
-        <div class="card-title">Volume Lifted</div>
-        <div class="stat-value" id="statVolume">—</div>
-        <div class="stat-unit">kg this week</div>
-    </div>
-</div>
+    .dash-stat-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 136px;
+    }
 
-<div class="card mb-24" id="nutritionCard" style="display:none;">
-    <div class="card-header">
-        <div class="card-title">Today's Nutrition Recommendation</div>
-        <div class="label-caps" id="nutritionActivityCount"></div>
-    </div>
-    <div class="grid grid-4" id="nutritionGrid">
-        <div>
-            <div class="label-caps">Maintenance Calories</div>
-            <div class="flex items-baseline" style="gap: 4px;">
-                <div class="data-lg" id="nutCalories">—</div>
-                <div style="font-size:1.25rem; color:var(--text-secondary); font-weight:600;">±</div>
+    .dash-stat-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .dash-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+
+    .dash-stat-card:nth-child(1):hover {
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px var(--accent-dim) inset;
+    }
+
+    .dash-stat-card:nth-child(2):hover {
+        border-color: #00D2FF;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 210, 255, 0.15) inset;
+    }
+
+    .dash-stat-card:nth-child(3):hover {
+        border-color: #FF9F00;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 159, 0, 0.15) inset;
+    }
+
+    .dash-stat-card:nth-child(4):hover {
+        border-color: #A855F7;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(168, 85, 247, 0.15) inset;
+    }
+
+    .dash-card-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+    }
+
+    .dash-stat-card:nth-child(1) .dash-card-icon-wrap {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: rgba(191, 255, 0, 0.1);
+    }
+
+    .dash-stat-card:nth-child(2) .dash-card-icon-wrap {
+        color: #00D2FF;
+        background: rgba(0, 210, 255, 0.08);
+        border-color: rgba(0, 210, 255, 0.1);
+    }
+
+    .dash-stat-card:nth-child(3) .dash-card-icon-wrap {
+        color: #FF9F00;
+        background: rgba(255, 159, 0, 0.08);
+        border-color: rgba(255, 159, 0, 0.1);
+    }
+
+    .dash-stat-card:nth-child(4) .dash-card-icon-wrap {
+        color: #A855F7;
+        background: rgba(168, 85, 247, 0.08);
+        border-color: rgba(168, 85, 247, 0.1);
+    }
+
+    .dash-card-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Modal detail styling */
+    .modal-detail-card {
+        background: var(--bg-l2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-bottom: 12px;
+        transition: border-color 0.2s ease;
+    }
+
+    .modal-detail-card:hover {
+        border-color: var(--border-hover);
+    }
+
+    .modal-chart-container {
+        background: rgba(0,0,0,0.2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        height: 200px;
+        position: relative;
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Macro Progress Cards */
+    .macro-progress-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 136px;
+    }
+
+    .macro-progress-card:hover { transform: translateY(-4px); }
+
+    .macro-progress-card:nth-child(1):hover {
+        border-color: var(--text-primary);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    }
+
+    .macro-progress-card:nth-child(2):hover {
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px var(--accent-dim) inset;
+    }
+
+    .macro-progress-card:nth-child(3):hover {
+        border-color: #00D2FF;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 210, 255, 0.15) inset;
+    }
+
+    .macro-progress-card:nth-child(4):hover {
+        border-color: #FF9F00;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 159, 0, 0.15) inset;
+    }
+
+    .macro-bar-container {
+        height: 6px;
+        background: var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 12px 0 8px 0;
+    }
+
+    .macro-bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        width: 0%;
+        transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .macro-bar-calories { background: var(--text-primary); }
+    .macro-bar-protein { background: var(--accent); }
+    .macro-bar-carbs { background: #00D2FF; }
+    .macro-bar-fats { background: #FF9F00; }
+</style>
+
+<div class="dashboard-container page-fade-in">
+    <div class="page-header">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2>Dashboard</h2>
+                <p>Your performance overview</p>
             </div>
-            <div style="font-size:0.6875rem; color:var(--text-secondary); margin-top:4px; display:flex; flex-direction:column; gap:2px; font-weight:500;">
-                <div>CUT: <span id="nutCut" style="color:var(--text-primary)">—</span></div>
-                <div>BULK: <span id="nutBulk" style="color:var(--text-primary)">—</span></div>
+            <div class="flex gap-8 items-center">
+                {% if settings.get('strava_connected') == '1' %}
+                <span class="label-caps" id="lastSyncLabel" style="color:var(--text-muted);"></span>
+                <button class="btn btn-secondary btn-sm" onclick="syncActivities()" id="syncBtn">
+                    <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                    Sync
+                </button>
+                {% else %}
+                <a href="/auth/strava" class="btn btn-accent btn-sm">Connect Strava</a>
+                {% endif %}
             </div>
         </div>
-        <div><div class="label-caps">Protein</div><div class="data-lg" id="nutProtein">—</div><div class="stat-unit">grams</div></div>
-        <div><div class="label-caps">Carbs</div><div class="data-lg" id="nutCarbs">—</div><div class="stat-unit">grams</div></div>
-        <div><div class="label-caps">Fat</div><div class="data-lg" id="nutFat">—</div><div class="stat-unit">grams</div></div>
     </div>
-</div>
 
-<div class="grid grid-2 mb-24">
-    <div class="card">
+    <!-- Stats -->
+    <div class="grid grid-4 mb-24" id="statsGrid">
+        <!-- Total Activities -->
+        <div class="dash-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Total Activities</span>
+                <div class="dash-card-icon-wrap">
+                    <svg class="dash-card-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="statTotal">—</div>
+                <div class="stat-unit">this week</div>
+            </div>
+        </div>
+
+        <!-- Distance -->
+        <div class="dash-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Distance</span>
+                <div class="dash-card-icon-wrap">
+                    <svg class="dash-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="statDistance">—</div>
+                <div class="stat-unit">km this week</div>
+            </div>
+        </div>
+
+        <!-- Calories Burned -->
+        <div class="dash-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Calories Burned</span>
+                <div class="dash-card-icon-wrap">
+                    <svg class="dash-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <circle cx="12" cy="13" r="8"/>
+                        <path d="M12 9v4l2 2"/>
+                        <path d="M12 2v3"/>
+                        <path d="M9 2h6"/>
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="statCalories">—</div>
+                <div class="stat-unit">kcal this week</div>
+            </div>
+        </div>
+
+        <!-- Volume Lifted -->
+        <div class="dash-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Volume Lifted</span>
+                <div class="dash-card-icon-wrap">
+                    <svg class="dash-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />
+                        <path d="m2.5 21.5 1.4-1.4M20.1 3.9l1.4-1.4" />
+                        <path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" />
+                        <path d="m9.6 14.4 4.8-4.8" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="statVolume">—</div>
+                <div class="stat-unit">kg this week</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-2 mb-24">
+        <div class="chart-card">
+            <div class="card-header">
+                <div class="card-title">Activity This Week</div>
+            </div>
+            <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <div class="card-header">
+                <div class="card-title">Activity Type Split</div>
+                <div id="typeChartLegend" class="custom-chart-legend"></div>
+            </div>
+            <div class="chart-wrap"><canvas id="typeChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="mb-24" id="nutritionCard" style="display:none; padding: 0; background: transparent; border: none;">
+        <div class="grid grid-4 mb-24" id="nutritionGrid">
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Recommended Calories</span>
+                    <div class="progress-card-icon-wrap" style="color:var(--text-primary); background:rgba(255,255,255,0.03); border:1px solid var(--border); width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius);">
+                        <svg style="width:16px; height:16px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="flex items-center gap-24" style="margin-top: 12px;">
+                    <div class="stat-value" id="dashCalVal" style="margin-top: 0;">0</div>
+                    <div style="width: 1px; height: 32px; background-color: var(--border);"></div>
+                    <div style="font-size:0.6875rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:2px; font-weight:500;">
+                        <div>CUT: <span id="dashNutCut" style="color:var(--text-primary)">—</span></div>
+                        <div>BULK: <span id="dashNutBulk" style="color:var(--text-primary)">—</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Recommended Protein</span>
+                    <div class="progress-card-icon-wrap" style="color:var(--accent); background:var(--accent-dim); border:1px solid rgba(191,255,0,0.1); width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius);">
+                        <svg style="width:16px; height:16px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M15.4 15.63a7.875 6 135 1 1 6.23-6.23 4.5 3.43 135 0 0-6.23 6.23" />
+                            <path d="m8.29 12.71-2.6 2.6a2.5 2.5 0 1 0-1.65 4.65A2.5 2.5 0 1 0 8.7 18.3l2.59-2.59" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="stat-value" id="dashProtVal" style="margin-top: 12px;">0g</div>
+            </div>
+
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Recommended Carbs</span>
+                    <div class="progress-card-icon-wrap" style="color:#00D2FF; background:rgba(0,210,255,0.08); border:1px solid rgba(0,210,255,0.1); width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius);">
+                        <svg style="width:16px; height:16px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M2 22 16 8" />
+                            <path d="M3.47 12.53 5 11l1.53 1.53a3.5 3.5 0 0 1 0 4.94L5 19l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z" />
+                            <path d="M7.47 8.53 9 7l1.53 1.53a3.5 3.5 0 0 1 0 4.94L9 15l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z" />
+                            <path d="M11.47 4.53 13 3l1.53 1.53a3.5 3.5 0 0 1 0 4.94L13 11l-1.53-1.53a3.5 3.5 0 0 1 0-4.94Z" />
+                            <path d="M20 2h2v2a4 4 0 0 1-4 4h-2V6a4 4 0 0 1 4-4Z" />
+                            <path d="M11.47 17.47 13 19l-1.53 1.53a3.5 3.5 0 0 1-4.94 0L5 19l1.53-1.53a3.5 3.5 0 0 1 4.94 0Z" />
+                            <path d="M15.47 13.47 17 15l-1.53 1.53a3.5 3.5 0 0 1-4.94 0L9 15l1.53-1.53a3.5 3.5 0 0 1 4.94 0Z" />
+                            <path d="M19.47 9.47 21 11l-1.53 1.53a3.5 3.5 0 0 1-4.94 0L13 11l1.53-1.53a3.5 3.5 0 0 1 4.94 0Z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="stat-value" id="dashCarbVal" style="margin-top: 12px;">0g</div>
+            </div>
+
+            <div class="macro-progress-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Recommended Fats</span>
+                    <div class="progress-card-icon-wrap" style="color:#FF9F00; background:rgba(255,159,0,0.08); border:1px solid rgba(255,159,0,0.1); width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius);">
+                        <svg style="width:16px; height:16px;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="stat-value" id="dashFatVal" style="margin-top: 12px;">0g</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-24">
         <div class="card-header">
-            <div class="card-title">Activity This Week</div>
-        </div>
-        <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
-    </div>
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Activity Type Split</div>
-        </div>
-        <div class="chart-wrap"><canvas id="typeChart"></canvas></div>
-    </div>
-</div>
-
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">Recent Activities</div>
-        <div class="flex gap-8 items-center">
-            <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px; margin-right: 16px;" onchange="loadDashboard()">
-                <option value="15" selected>15</option>
-                <option value="30">30</option>
-                <option value="50">50</option>
-                <option value="-1">All time</option>
-            </select>
-            <button class="tab-btn active" onclick="filterRecent('all', this)">All</button>
-            <button class="tab-btn" onclick="filterRecent('running', this)">Running</button>
-            <button class="tab-btn" onclick="filterRecent('lifting', this)">Lifting</button>
-        </div>
-    </div>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Activity</th>
-                    <th>Type</th>
-                    <th>Duration</th>
-                    <th>Distance</th>
-                    <th>Calories</th>
-                    <th>HR Avg</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="recentTable">
-                <tr><td colspan="7" class="empty-state"><p>Loading activities...</p></td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div class="ai-box mb-24">
-    <div class="ai-label">
-        <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
-        AI Quick Analysis
-    </div>
-    <div id="dashAiResponse" class="ai-response" style="color:var(--text-secondary);">
-        Press the button below to get AI-powered insights about your recent training.
-    </div>
-    <div class="flex justify-between items-center mt-16">
-        <button class="btn btn-accent btn-sm" onclick="runDashAI()" id="dashAiBtn">
-            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
-            Analyze My Week
-        </button>
-        <div class="usage-text" id="dashUsage"></div>
-    </div>
-</div>
-
-<div class="card">
-    <div class="card-header">
-        <div class="card-title">Active Goals</div>
-        <button class="btn btn-ghost btn-sm" onclick="openGoalModal()">+ Add Goal</button>
-    </div>
-    <div id="goalsList"></div>
-</div>
-
-<div class="modal-overlay" id="goalModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3>New Goal</h3>
-            <button class="modal-close" onclick="closeGoalModal()">×</button>
-        </div>
-        <div class="modal-body">
-            <div class="flex gap-8 mb-16">
-                <button class="tab-btn active" id="goalCatRunning" onclick="setGoalCategory('running')">Running</button>
-                <button class="tab-btn" id="goalCatWeight" onclick="setGoalCategory('weight')">Weight Training</button>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Goal Type</label>
-                <select class="form-input" id="goalMetric" onchange="updateGoalFields()">
+            <div class="card-title">Recent Activities</div>
+            <div class="flex gap-8 items-center">
+                <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px; margin-right: 16px;" onchange="loadDashboard()">
+                    <option value="15" selected>15</option>
+                    <option value="30">30</option>
+                    <option value="50">50</option>
+                    <option value="-1">All time</option>
                 </select>
+                <button class="tab-btn active" onclick="filterRecent('all', this)">All</button>
+                <button class="tab-btn" onclick="filterRecent('running', this)">Running</button>
+                <button class="tab-btn" onclick="filterRecent('lifting', this)">Lifting</button>
             </div>
-
-            <div class="form-group">
-                <label class="form-label">Goal Title</label>
-                <input type="text" class="form-input" id="goalTitle" placeholder="Auto-generated from your selection">
-            </div>
-
-            <div id="goalDynamicFields"></div>
-
-            <div class="form-group">
-                <label class="form-label">Deadline (optional)</label>
-                <input type="date" class="form-input" id="goalDeadline">
-            </div>
-
-            <button class="btn btn-primary w-full mt-8" onclick="createGoal()">Create Goal</button>
+        </div>
+        <div class="table-container page-fade-in">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Activity</th>
+                        <th>Type</th>
+                        <th>Duration</th>
+                        <th>Distance</th>
+                        <th>Calories</th>
+                        <th>HR Avg</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="recentTable">
+                    <tr><td colspan="7" class="empty-state"><p>Loading activities...</p></td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
-</div>
 
-<div class="modal-overlay" id="dashDetailModal">
-    <div class="modal" style="max-width:720px;">
-        <div class="modal-header">
-            <h3 id="dashDetailTitle">Activity Details</h3>
-            <button class="modal-close" onclick="document.getElementById('dashDetailModal').classList.remove('active')">×</button>
+
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Active Goals</div>
+            <button class="btn btn-ghost btn-sm" onclick="openGoalModal()">+ Add Goal</button>
         </div>
-        <div class="modal-body" id="dashDetailBody"></div>
+        <div id="goalsList"></div>
+    </div>
+
+    <div class="modal-overlay" id="goalModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>New Goal</h3>
+                <button class="modal-close" onclick="closeGoalModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="flex gap-8 mb-16">
+                    <button class="tab-btn active" id="goalCatRunning" onclick="setGoalCategory('running')">Running</button>
+                    <button class="tab-btn" id="goalCatWeight" onclick="setGoalCategory('weight')">Weight Training</button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Goal Type</label>
+                    <select class="form-input" id="goalMetric" onchange="updateGoalFields()">
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Goal Title</label>
+                    <input type="text" class="form-input" id="goalTitle" placeholder="Auto-generated from your selection">
+                </div>
+
+                <div id="goalDynamicFields"></div>
+
+                <div class="form-group">
+                    <label class="form-label">Deadline (optional)</label>
+                    <input type="date" class="form-input" id="goalDeadline">
+                </div>
+
+                <button class="btn btn-primary w-full mt-8" onclick="createGoal()">Create Goal</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="dashDetailModal">
+        <div class="modal" style="max-width:760px;">
+            <div class="modal-header">
+                <h3 id="dashDetailTitle">Activity Details</h3>
+                <button class="modal-close" onclick="document.getElementById('dashDetailModal').classList.remove('active')">×</button>
+            </div>
+            <div class="modal-body" id="dashDetailBody"></div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -195,9 +461,19 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 <script>
+// Escape HTML Helper
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadDashboard();
-    loadAIUsage();
     loadGoals();
     loadSyncStatus();
 
@@ -225,22 +501,38 @@ async function loadSyncStatus() {
 
 async function loadNutrition() {
     try {
-        const res = await fetch('/api/nutrition/daily');
-        const data = await res.json();
-        if (data.activity_count > 0) {
-            document.getElementById('nutritionCard').style.display = '';
-            document.getElementById('nutritionActivityCount').textContent = `Based on ${data.activity_count} activities today`;
-            
-            const total = data.total_calories || 0;
-            animateValue(document.getElementById('nutCalories'), total);
-            animateValue(document.getElementById('nutCut'), Math.max(0, total - 500));
-            animateValue(document.getElementById('nutBulk'), total + 200);
-            
-            animateValue(document.getElementById('nutProtein'), data.protein_g || 0);
-            animateValue(document.getElementById('nutCarbs'), data.carbs_g || 0);
-            animateValue(document.getElementById('nutFat'), data.fat_g || 0);
+        const [dailyRes, targetsRes] = await Promise.all([
+            fetch('/api/nutrition/daily'),
+            fetch('/api/nutrition/targets')
+        ]);
+        const data = await dailyRes.json();
+        
+        let targets = { calories: 3000, protein: 200, carbs: 250, fats: 90 };
+        if (targetsRes.ok) {
+            const tData = await targetsRes.json();
+            targets.calories = tData.calories || 3000;
+            targets.protein = tData.protein || 200;
+            targets.carbs = tData.carbs || 250;
+            targets.fats = tData.fats || 90;
         }
-    } catch(e) {}
+
+        document.getElementById('nutritionCard').style.display = '';
+        
+        function updateMacroCard(prefix, val, unit) {
+            document.getElementById(`dash${prefix}Val`).innerHTML = `${Math.round(val)} <span class="stat-unit" style="margin-left: 2px;">${unit}</span>`;
+        }
+
+        updateMacroCard('Cal', targets.calories, 'kcal');
+        updateMacroCard('Prot', targets.protein, 'g');
+        updateMacroCard('Carb', targets.carbs, 'g');
+        updateMacroCard('Fat', targets.fats, 'g');
+        
+        document.getElementById('dashNutCut').textContent = Math.round(Math.max(0, targets.calories - 500)) + ' kcal';
+        document.getElementById('dashNutBulk').textContent = Math.round(targets.calories + 200) + ' kcal';
+        
+    } catch(e) {
+        console.error('Failed to load dashboard nutrition:', e);
+    }
 }
 
 async function loadDashboard() {
@@ -287,7 +579,7 @@ function renderRecentTable(activities) {
         const hr = a.average_heartrate ? Math.round(a.average_heartrate) : '—';
         const type = a.is_hevy ? '<span class="badge badge-accent">LIFT</span>' : '<span class="badge">' + (a.activity_type || '—') + '</span>';
         const isLifting = a.is_hevy || a.activity_type === 'WeightTraining' || a.activity_type === 'Workout';
-        return `<tr onclick="showActivityDetail(${a.id}, ${isLifting ? 'true' : 'false'})" style="cursor:pointer;"><td class="td-muted">${date}</td><td>${a.name || '—'}</td><td>${type}</td><td class="data-mono">${dur}</td><td class="data-mono">${dist}</td><td class="data-mono">${cal}</td><td class="data-mono">${hr}</td><td><span class="badge badge-accent">VIEW</span></td></tr>`;
+        return `<tr onclick="showActivityDetail(${a.id}, ${isLifting ? 'true' : 'false'})" style="cursor:pointer;"><td class="td-muted">${date}</td><td style="font-weight:600;">${escapeHtml(a.name || '—')}</td><td>${type}</td><td class="data-mono">${dur}</td><td class="data-mono">${dist}</td><td class="data-mono">${cal}</td><td class="data-mono">${hr}</td><td><span class="badge badge-accent" style="font-size:0.625rem; padding:2px 6px;">VIEW</span></td></tr>`;
     }).join('');
 }
 
@@ -305,37 +597,61 @@ async function syncActivities() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Syncing...';
     try {
-        const res = await fetch('/api/sync');
-        const data = await res.json();
-        if (data.error) { showToast(data.error, 'error'); }
-        else { showToast(data.message, 'success'); loadDashboard(); loadSyncStatus(); loadNutrition(); }
-    } catch(e) { showToast('Sync failed', 'error'); }
+        const [stravaRes, hcRes] = await Promise.allSettled([
+            fetch('/api/sync'),
+            fetch('/api/health-connect/sync', { method: 'POST' })
+        ]);
+        
+        let messages = [];
+        let hasError = false;
+        
+        if (stravaRes.status === 'fulfilled') {
+            const data = await stravaRes.value.json();
+            if (data.error) {
+                // If it's just 'not connected', maybe don't treat as fatal, but log it
+                hasError = true;
+                messages.push('Strava: ' + data.error);
+            } else {
+                messages.push('Strava synced');
+            }
+        } else {
+            hasError = true;
+            messages.push('Strava sync failed');
+        }
+
+        if (hcRes.status === 'fulfilled') {
+            const data = await hcRes.value.json();
+            if (data.error) {
+                // Don't show error if HC simply isn't enabled
+                if (!data.error.includes('not enabled')) {
+                    hasError = true;
+                    messages.push('Health: ' + data.error);
+                }
+            } else {
+                messages.push('Health synced');
+            }
+        } else {
+            hasError = true;
+            messages.push('Health sync failed');
+        }
+
+        if (hasError && messages.length > 0) {
+            showToast(messages.join(' | '), 'error');
+        } else {
+            showToast(messages.join(' | '), 'success');
+        }
+        
+        loadDashboard(); 
+        loadSyncStatus(); 
+        loadNutrition();
+    } catch(e) { 
+        showToast('Sync failed', 'error'); 
+    }
     btn.disabled = false;
     btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Sync';
 }
 
-async function runDashAI() {
-    const btn = document.getElementById('dashAiBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Analyzing...';
-    document.getElementById('dashAiResponse').textContent = 'Analyzing your recent training data...';
-    try {
-        const res = await fetch('/api/ai/analyze', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({prompt:'Give me a quick weekly summary and top 3 actionable recommendations.'}) });
-        const data = await res.json();
-        if (data.error) { document.getElementById('dashAiResponse').textContent = data.error; showToast(data.error, 'error'); }
-        else { document.getElementById('dashAiResponse').innerHTML = formatAI(data.response); loadAIUsage(); }
-    } catch(e) { document.getElementById('dashAiResponse').textContent = 'Failed to get AI analysis.'; }
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg> Analyze My Week';
-}
 
-async function loadAIUsage() {
-    try {
-        const res = await fetch('/api/ai/usage');
-        const data = await res.json();
-        document.getElementById('dashUsage').textContent = `${data.used}/${data.limit} requests today`;
-    } catch(e) {}
-}
 
 async function loadGoals() {
     try {
@@ -557,22 +873,25 @@ async function showActivityDetail(id, isHevy) {
             const grouped = {};
             details.forEach(d => { if (!grouped[d.exercise_name]) grouped[d.exercise_name] = []; grouped[d.exercise_name].push(d); });
 
-            let html = `<div class="flex gap-16 mb-16">
-                <div><div class="label-caps">Total Volume</div><div class="data-md">${Math.round(totalVol).toLocaleString()} kg</div></div>
-                <div><div class="label-caps">Exercises</div><div class="data-md">${Object.keys(grouped).length}</div></div>
-                <div><div class="label-caps">Duration</div><div class="data-md">${data.moving_time?Math.round(data.moving_time/60)+'min':'—'}</div></div>
-                <div><div class="label-caps">Calories</div><div class="data-md">${data.calories?Math.round(data.calories)+' kcal':'—'}</div></div>
+            let html = `<div class="modal-detail-card">
+                <div class="section-title">Session Overview</div>
+                <div class="detail-grid-4">
+                    <div><div class="label-caps" style="font-size:0.6rem;">Total Volume</div><div class="data-md" style="color:var(--accent); font-weight:700;">${Math.round(totalVol).toLocaleString()} kg</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Exercises</div><div class="data-md">${Object.keys(grouped).length}</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Duration</div><div class="data-md">${data.moving_time?Math.round(data.moving_time/60)+' min':'—'}</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Calories</div><div class="data-md">${data.calories?Math.round(data.calories)+' kcal':'—'}</div></div>
+                </div>
             </div>`;
 
             for (const [name, sets] of Object.entries(grouped)) {
                 const muscle = sets[0].muscle_group || '';
-                html += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-                    <div class="flex justify-between items-center mb-8">
-                        <span style="font-weight:600;">${name}</span>
-                        ${muscle ? `<span class="badge">${muscle}</span>` : ''}
+                html += `<div class="modal-detail-card" style="margin-top:12px;">
+                    <div class="flex justify-between items-center mb-12">
+                        <span style="font-weight:700; font-size:0.9rem; color:var(--text-primary);">${escapeHtml(name)}</span>
+                        ${muscle ? `<span class="badge badge-accent">${escapeHtml(muscle)}</span>` : ''}
                     </div>
-                    <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:4px 16px;font-size:0.8125rem;">
-                        <div class="label-caps">Set</div><div class="label-caps">Weight</div><div class="label-caps">Reps</div><div class="label-caps">Vol</div>
+                    <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px 16px;font-size:0.8125rem; padding-top:10px;">
+                        <div class="label-caps" style="font-size:0.6rem;">Set</div><div class="label-caps" style="font-size:0.6rem;">Weight</div><div class="label-caps" style="font-size:0.6rem;">Reps</div><div class="label-caps" style="font-size:0.6rem;">Vol</div>
                         ${sets.map(s => `<div class="data-mono ${s.is_warmup?'td-muted':''}">${s.is_warmup?'W':''}${s.set_number}</div>
                             <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.weight}${s.weight_unit||'kg'}</div>
                             <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.reps}</div>
@@ -599,34 +918,81 @@ async function showActivityDetail(id, isHevy) {
             if (data.map_polyline) {
                 html += `<div id="dashDetailMap" style="height:240px;border-radius:var(--radius);overflow:hidden;margin-bottom:16px;border:1px solid var(--border);"></div>`;
             }
-            html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-                <div><div class="label-caps">Distance</div><div class="data-md">${dist} km</div></div>
-                <div><div class="label-caps">Duration</div><div class="data-md">${dur}</div></div>
-                <div><div class="label-caps">Pace</div><div class="data-md">${pace} /km</div></div>
-                <div><div class="label-caps">Calories</div><div class="data-md">${cal} kcal</div></div>
+
+            // Stats grid - Core Performance
+            html += `<div class="modal-detail-card">
+                <div class="section-title">Core Performance</div>
+                <div class="detail-grid-4">
+                    <div><div class="label-caps" style="font-size:0.6rem;">Distance</div><div class="data-md" style="color:var(--accent); font-weight:700;">${dist} km</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Duration</div><div class="data-md">${dur}</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Pace</div><div class="data-md">${pace} /km</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Calories</div><div class="data-md">${cal} kcal</div></div>
+                </div>
             </div>`;
-            html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-                <div><div class="label-caps">Avg Speed</div><div class="data-md">${avgSpeed} km/h</div></div>
-                <div><div class="label-caps">Max Speed</div><div class="data-md">${maxSpeed} km/h</div></div>
-                <div><div class="label-caps">Elevation</div><div class="data-md">${elev} m</div></div>
-                <div><div class="label-caps">Cadence</div><div class="data-md">${cadence} spm</div></div>
+
+            // Stats grid - Speed & Elevation
+            html += `<div class="modal-detail-card">
+                <div class="section-title">Speed &amp; Elevation</div>
+                <div class="detail-grid-4">
+                    <div><div class="label-caps" style="font-size:0.6rem;">Avg Speed</div><div class="data-md">${avgSpeed} km/h</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Max Speed</div><div class="data-md">${maxSpeed} km/h</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Elevation</div><div class="data-md">${elev} m</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Cadence</div><div class="data-md">${cadence} spm</div></div>
+                </div>
             </div>`;
+
+            // Stats grid - Cardiac Metrics
             if (data.average_heartrate) {
-                html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-top:12px;border-top:1px solid var(--border);">
-                    <div><div class="label-caps">Avg HR</div><div class="data-md" style="color:var(--danger);">${hr} bpm</div></div>
-                    <div><div class="label-caps">Max HR</div><div class="data-md" style="color:var(--danger);">${hrMax} bpm</div></div>
-                    <div><div class="label-caps">Suffer Score</div><div class="data-md">${data.suffer_score||'—'}</div></div>
-                    <div><div class="label-caps">Date</div><div class="data-md">${date}</div></div>
+                html += `<div class="modal-detail-card">
+                    <div class="section-title">Cardiac Metrics</div>
+                    <div class="detail-grid-4">
+                        <div><div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Avg HR</div><div class="data-md" style="color:var(--danger);">${hr} bpm</div></div>
+                        <div><div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Max HR</div><div class="data-md" style="color:var(--danger);">${hrMax} bpm</div></div>
+                        <div><div class="label-caps" style="font-size:0.6rem;">Suffer Score</div><div class="data-md">${data.suffer_score||'—'}</div></div>
+                        <div><div class="label-caps" style="font-size:0.6rem;">Date</div><div class="data-md">${date}</div></div>
+                    </div>
+                </div>`;
+            } else {
+                html += `<div class="modal-detail-card" id="dashCardiacMetricsCard">
+                    <div class="section-title">Cardiac Metrics</div>
+                    <div class="detail-grid-4">
+                        <div>
+                            <div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Avg HR</div>
+                            <div class="data-md" style="color:var(--danger);" id="dashModalAvgHR">
+                                <span style="color:var(--text-secondary);font-size:0.8rem;">fetching…</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Max HR</div>
+                            <div class="data-md" style="color:var(--danger);" id="dashModalMaxHR">—</div>
+                        </div>
+                        <div><div class="label-caps" style="font-size:0.6rem;">Suffer Score</div><div class="data-md">${data.suffer_score||'—'}</div></div>
+                        <div><div class="label-caps" style="font-size:0.6rem;">Date</div><div class="data-md">${date}</div></div>
+                    </div>
                 </div>`;
             }
 
-            html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-                <div><div class="label-caps" style="margin-bottom:8px;">Heart Rate</div><div style="height:160px;position:relative;"><canvas id="dashModalHR"></canvas></div></div>
-                <div><div class="label-caps" style="margin-bottom:8px;">Speed</div><div style="height:160px;position:relative;"><canvas id="dashModalSpeed"></canvas></div></div>
-                <div><div class="label-caps" style="margin-bottom:8px;">Pace</div><div style="height:160px;position:relative;"><canvas id="dashModalPace"></canvas></div></div>
-                <div><div class="label-caps" style="margin-bottom:8px;">Elevation</div><div style="height:160px;position:relative;"><canvas id="dashModalElev"></canvas></div></div>
+            // 2x2 chart grid placeholders
+            html += `<div class="section-title mt">Metric Charts</div>
+            <div class="detail-grid-2">
+                <div>
+                    <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Heart Rate</div>
+                    <div class="modal-chart-container page-fade-in"><canvas id="dashModalHR"></canvas></div>
+                </div>
+                <div>
+                    <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Speed</div>
+                    <div class="modal-chart-container page-fade-in"><canvas id="dashModalSpeed"></canvas></div>
+                </div>
+                <div>
+                    <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Pace</div>
+                    <div class="modal-chart-container page-fade-in"><canvas id="dashModalPace"></canvas></div>
+                </div>
+                <div>
+                    <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Elevation</div>
+                    <div class="modal-chart-container page-fade-in"><canvas id="dashModalElev"></canvas></div>
+                </div>
             </div>
-            <div class="label-caps" style="text-align:center;margin-top:8px;color:var(--text-muted);" id="dashStreamsLoading">Loading stream data...</div>`;
+            <div class="label-caps" style="text-align:center;margin-top:12px;color:var(--text-muted);" id="dashStreamsLoading">Loading stream data...</div>`;
 
             body.innerHTML = html;
             document.getElementById('dashDetailModal').classList.add('active');
@@ -636,8 +1002,39 @@ async function showActivityDetail(id, isHevy) {
                     if (dashMapInstance) { dashMapInstance.remove(); dashMapInstance = null; }
                     const mapEl = document.getElementById('dashDetailMap');
                     if (!mapEl) return;
-                    dashMapInstance = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: true, scrollWheelZoom: false });
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(dashMapInstance);
+                    dashMapInstance = L.map(mapEl, { zoomControl: true, attributionControl: false, dragging: true, scrollWheelZoom: false });
+                    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+                    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+                    darkLayer.addTo(dashMapInstance);
+                    
+                    const LayerSwitcher = L.Control.extend({
+                        options: { position: 'topright' },
+                        onAdd: function(map) {
+                            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                            
+                            const darkBtn = L.DomUtil.create('a', '', container);
+                            darkBtn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>';
+                            darkBtn.href = '#';
+                            darkBtn.title = 'Map View';
+                            darkBtn.style.display = 'flex';
+                            darkBtn.style.alignItems = 'center';
+                            darkBtn.style.justifyContent = 'center';
+                            
+                            const satBtn = L.DomUtil.create('a', '', container);
+                            satBtn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>';
+                            satBtn.href = '#';
+                            satBtn.title = 'Satellite View';
+                            satBtn.style.display = 'flex';
+                            satBtn.style.alignItems = 'center';
+                            satBtn.style.justifyContent = 'center';
+                            
+                            L.DomEvent.disableClickPropagation(container);
+                            L.DomEvent.on(darkBtn, 'click', function(e) { L.DomEvent.preventDefault(e); map.removeLayer(satelliteLayer); map.addLayer(darkLayer); });
+                            L.DomEvent.on(satBtn, 'click', function(e) { L.DomEvent.preventDefault(e); map.removeLayer(darkLayer); map.addLayer(satelliteLayer); });
+                            return container;
+                        }
+                    });
+                    dashMapInstance.addControl(new LayerSwitcher());
                     dashMapInstance.invalidateSize();
                     const coords = decodePolyline(data.map_polyline);
                     if (coords.length) {
@@ -651,6 +1048,27 @@ async function showActivityDetail(id, isHevy) {
                 }, 300);
             }
 
+            // Fetch fallback HR if needed
+            let fallbackSeries = null;
+            if (!data.average_heartrate) {
+                try {
+                    const fbRes = await fetch(`/api/activities/${id}/hr-fallback`);
+                    const fb = await fbRes.json();
+                    const avgEl = document.getElementById('dashModalAvgHR');
+                    const maxEl = document.getElementById('dashModalMaxHR');
+                    if (fb.fallback) {
+                        if (avgEl) avgEl.innerHTML = `${fb.avg_bpm} <span style="font-size:0.65rem;color:#888;font-weight:500;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);padding:1px 5px;border-radius:3px;margin-left:4px;">fallback</span>`;
+                        if (maxEl) maxEl.textContent = fb.max_bpm + ' bpm';
+                        fallbackSeries = fb.series;
+                    } else {
+                        if (avgEl) avgEl.innerHTML = '<span style="color:var(--text-secondary);">—</span>';
+                    }
+                } catch (e) {
+                    const avgEl = document.getElementById('dashModalAvgHR');
+                    if (avgEl) avgEl.innerHTML = '<span style="color:var(--text-secondary);">—</span>';
+                }
+            }
+
             try {
                 const sRes = await fetch(`/api/activities/${id}/streams`);
                 const streams = await sRes.json();
@@ -662,9 +1080,19 @@ async function showActivityDetail(id, isHevy) {
                     const sr = Math.max(1, Math.floor(distL.length / 150));
                     const sm = (arr) => arr.filter((_,i) => i % sr === 0);
                     const sL = sm(distL);
-                    const cOpts = { responsive:true, maintainAspectRatio:false, animation:{duration:0}, elements:{point:{radius:0},line:{borderWidth:1.5}}, scales:{x:{display:false},y:{ticks:{color:'#888',font:{size:10,family:"'Geist',sans-serif"}},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}}}, plugins:{legend:{display:false},tooltip:{enabled:true,mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#bfff00',bodyColor:'#ccc',borderColor:'#333',borderWidth:1}} };
+                    const tc = getThemeColors();
+                    const cOpts = { responsive:true, maintainAspectRatio:false, animation:{duration:0}, elements:{point:{radius:0},line:{borderWidth:1.5}}, scales:{x:{display:false},y:{ticks:{color:'#888',font:{size:10,family:"'Geist',sans-serif"}},grid:{color:tc.gridLine},border:{display:false}}}, plugins:{legend:{display:false},tooltip:{enabled:true,mode:'index',intersect:false,backgroundColor:tc.tooltipBg,titleColor:tc.tooltipTitle === '#FFFFFF' ? '#bfff00' : tc.tooltipTitle,bodyColor:tc.tooltipBody,borderColor:tc.tooltipBorder,borderWidth:1}} };
                     if (streams.heartrate && streams.heartrate.length) {
                         dashModalCharts.hr = new Chart(document.getElementById('dashModalHR'), { type:'line', data:{labels:sL,datasets:[{data:sm(streams.heartrate),borderColor:'#ff4444',backgroundColor:'rgba(255,68,68,0.1)',fill:true,tension:0.3}]}, options:{...cOpts,scales:{...cOpts.scales,y:{...cOpts.scales.y,title:{display:true,text:'bpm',color:'#888',font:{size:10}}}}} });
+                    } else if (fallbackSeries && fallbackSeries.length) {
+                        const fbSampleRate = Math.max(1, Math.floor(fallbackSeries.length / 150));
+                        const fbSampled = fallbackSeries.filter((_, i) => i % fbSampleRate === 0);
+                        const fbLabels = fbSampled.map(() => ''); 
+                        dashModalCharts.hr = new Chart(document.getElementById('dashModalHR'), {
+                            type: 'line',
+                            data: { labels: fbLabels, datasets: [{ data: fbSampled, borderColor: '#ff4444', backgroundColor: 'rgba(255,68,68,0.1)', fill: true, tension: 0.3 }] },
+                            options: { ...cOpts, scales: { ...cOpts.scales, y: { ...cOpts.scales.y, title: { display: true, text: 'bpm', color: '#888', font: { size: 10 } } } } }
+                        });
                     }
                     if (streams.velocity_smooth && streams.velocity_smooth.length) {
                         const spd = streams.velocity_smooth.map(v => +(v*3.6).toFixed(1));

@@ -33,7 +33,8 @@ def update_settings():
     allowed = [
         "body_weight", "weight_unit", "distance_unit", "theme",
         "enabled_tabs", "openrouter_api_key", "apininjas_api_key",
-        "user_height", "user_age", "user_sex",
+        "user_height", "user_age", "user_sex", "hc_webhook_enabled",
+        "hc_phone_ip", "hc_local_token"
     ]
 
     updated = []
@@ -42,32 +43,9 @@ def update_settings():
             set_setting(key, value)
             updated.append(key)
 
-    # Calculate BMI in backend
-    bmi_exceeded = False
-    try:
-        weight_str = get_setting("body_weight")
-        weight_unit = get_setting("weight_unit", "kg")
-        height_str = get_setting("user_height")
-
-        if weight_str and height_str:
-            weight = float(weight_str)
-            height_cm = float(height_str)
-            if height_cm > 0:
-                height_m = height_cm / 100.0
-                if weight_unit == "lbs":
-                    weight_kg = weight * 0.45359237
-                else:
-                    weight_kg = weight
-                bmi = weight_kg / (height_m * height_m)
-                if bmi > 25.0:
-                    bmi_exceeded = True
-    except Exception:
-        pass
-
     return jsonify({
         "message": f"Updated {len(updated)} settings",
-        "updated": updated,
-        "bmi_exceeded": bmi_exceeded
+        "updated": updated
     })
 
 
@@ -123,7 +101,18 @@ def clear_data():
         conn.execute("DELETE FROM sync_log")
         conn.execute("DELETE FROM ai_cache")
         conn.execute("DELETE FROM ai_usage")
+        # Clear health data tables
+        conn.execute("DELETE FROM health_steps")
+        conn.execute("DELETE FROM health_sleep")
+        conn.execute("DELETE FROM health_heart_rate")
+        conn.execute("DELETE FROM health_body_temp")
+        conn.execute("DELETE FROM health_vo2max")
+        conn.execute("DELETE FROM health_resting_heart_rate")
+        conn.execute("DELETE FROM health_hrv")
+        conn.execute("DELETE FROM health_oxygen_saturation")
+        conn.execute("DELETE FROM health_respiratory_rate")
     set_setting("last_sync", "")
+    set_setting("hc_last_sync", "")
     return jsonify({"message": "All activity data cleared"})
 
 

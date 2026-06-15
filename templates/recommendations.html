@@ -2,61 +2,130 @@
 {% block title_suffix %} — AI Insights{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2>AI Insights</h2>
-    <p>Powered by Nemotron via OpenRouter — button-activated analysis</p>
-</div>
+<style>
+    .insights-container {
+    }
 
-<!-- Usage Meter -->
-<div class="card mb-24">
-    <div class="flex justify-between items-center">
-        <div>
-            <div class="card-title">Daily API Usage</div>
-            <div class="flex items-center gap-8 mt-8">
-                <span class="data-md" id="aiUsed">0</span>
-                <span class="text-muted">/</span>
-                <span class="data-md text-muted" id="aiLimit">50</span>
-                <span class="stat-unit">requests today</span>
+    .ai-usage-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .ai-usage-card:hover {
+        transform: translateY(-4px);
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px var(--accent-dim) inset;
+    }
+
+    .ai-usage-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+
+    .progress-card-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+    }
+
+    .chart-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .chart-card:hover {
+        border-color: var(--border-hover);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        transform: translateY(-2px);
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="insights-container page-fade-in">
+    <div class="page-header">
+        <h2>AI Insights</h2>
+        <p>Powered by Nemotron via OpenRouter — button-activated analysis</p>
+    </div>
+
+    <!-- Usage Meter -->
+    <div class="ai-usage-card mb-24">
+        <div class="flex justify-between items-center">
+            <div>
+                <span class="label-caps">Daily API Usage</span>
+                <div class="flex items-center gap-8 mt-8">
+                    <span class="data-md" id="aiUsed">0</span>
+                    <span class="text-muted">/</span>
+                    <span class="data-md text-muted" id="aiLimit">50</span>
+                    <span class="stat-unit">requests today</span>
+                </div>
+            </div>
+            <div style="width:200px;">
+                <div class="usage-bar" style="height:6px; background:var(--border); border-radius:3px; overflow:hidden;"><div class="usage-fill" id="aiUsageBar" style="width:0%; height:100%; background:var(--accent); transition:width 0.3s ease;"></div></div>
             </div>
         </div>
-        <div style="width:200px;">
-            <div class="usage-bar"><div class="usage-fill" id="aiUsageBar" style="width:0%;"></div></div>
+    </div>
+
+    <!-- Analysis Box -->
+    <div class="ai-box mb-24">
+        <div class="ai-label">
+            <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
+            AI Recommendations
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Ask a specific question (optional)</label>
+            <textarea class="form-input" id="aiPrompt" rows="3" placeholder="e.g. How should I adjust my training volume this week? Or leave empty for a general analysis..."></textarea>
+        </div>
+
+        <div class="flex gap-8 mb-24 flex-wrap">
+            <button class="btn btn-accent" onclick="runAnalysis()" id="analyzeBtn">
+                <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
+                Analyze My Data
+            </button>
+            <button class="btn btn-secondary" onclick="runAnalysis('Give me a detailed weekly training recap with metrics analysis.')">Weekly Recap</button>
+            <button class="btn btn-secondary" onclick="runAnalysis('Provide nutrition recommendations based on my recent activity and calorie expenditure.')">Nutrition Tips</button>
+            <button class="btn btn-secondary" onclick="runAnalysis('Analyze my recovery needs based on recent training volume and intensity. Am I overtraining?')">Recovery Check</button>
+            <button class="btn btn-secondary" onclick="runAnalysis('Review my lifting volume and suggest which muscle groups need more attention based on imbalances.')">Volume Balance</button>
+        </div>
+
+        <div id="aiResponseArea" class="ai-response" style="min-height:100px;color:var(--text-secondary);">
+            Press a button above to get AI-powered insights about your training data. The AI will analyze your recent activities, progress, and goals to provide personalized recommendations.
         </div>
     </div>
-</div>
 
-<!-- Analysis Box -->
-<div class="ai-box mb-24">
-    <div class="ai-label">
-        <svg width="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
-        AI Recommendations
+    <!-- History -->
+    <div class="chart-card">
+        <div class="card-header"><div class="card-title">Recommendation History</div></div>
+        <div id="aiHistory"></div>
     </div>
-
-    <div class="form-group">
-        <label class="form-label">Ask a specific question (optional)</label>
-        <textarea class="form-input" id="aiPrompt" rows="3" placeholder="e.g. How should I adjust my training volume this week? Or leave empty for a general analysis..."></textarea>
-    </div>
-
-    <div class="flex gap-8 mb-24 flex-wrap">
-        <button class="btn btn-accent" onclick="runAnalysis()" id="analyzeBtn">
-            <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 3H10l-1-3c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/></svg>
-            Analyze My Data
-        </button>
-        <button class="btn btn-secondary" onclick="runAnalysis('Give me a detailed weekly training recap with metrics analysis.')">Weekly Recap</button>
-        <button class="btn btn-secondary" onclick="runAnalysis('Provide nutrition recommendations based on my recent activity and calorie expenditure.')">Nutrition Tips</button>
-        <button class="btn btn-secondary" onclick="runAnalysis('Analyze my recovery needs based on recent training volume and intensity. Am I overtraining?')">Recovery Check</button>
-        <button class="btn btn-secondary" onclick="runAnalysis('Review my lifting volume and suggest which muscle groups need more attention based on imbalances.')">Volume Balance</button>
-    </div>
-
-    <div id="aiResponseArea" class="ai-response" style="min-height:100px;color:var(--text-secondary);">
-        Press a button above to get AI-powered insights about your training data. The AI will analyze your recent activities, progress, and goals to provide personalized recommendations.
-    </div>
-</div>
-
-<!-- History -->
-<div class="card">
-    <div class="card-header"><div class="card-title">Recommendation History</div></div>
-    <div id="aiHistory"></div>
 </div>
 {% endblock %}
 
@@ -75,8 +144,6 @@ function copyAIText(btn, id) {
         setTimeout(() => btn.innerText = originalText, 2000);
     });
 }
-
-
 
 function downloadAIMarkdown(btn, id) {
     const text = id === 'current' ? window.currentAIResponse : window.aiHistoryData[id];

@@ -293,11 +293,13 @@ h4 {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 20px;
-    transition: border-color var(--transition);
+    transition: border-color var(--transition), transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover {
     border-color: var(--border-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
 .card-pb {
@@ -355,15 +357,58 @@ h4 {
     width: 100%;
 }
 
+.chart-card {
+    background: var(--bg-l1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chart-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+.custom-chart-legend {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-text {
+    white-space: nowrap;
+}
+
 /* === BUTTONS === */
 .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px 20px;
+    padding: 0 12px !important;
+    height: 32px !important;
+    box-sizing: border-box;
     font-family: var(--font);
-    font-size: 0.8125rem;
+    font-size: 0.75rem !important;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -438,30 +483,9 @@ h4 {
     height: 16px;
 }
 
-/* === TABS === */
-.tab-btn {
-    flex: 1;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid var(--border);
-    color: var(--text-secondary);
-    padding: 8px 16px;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition);
-    border-radius: 0;
-}
-
-.tab-btn:hover {
-    color: var(--text-primary);
-    border-bottom-color: var(--border-hover);
-}
-
-.tab-btn.active {
-    background: transparent;
-    color: var(--text-primary);
-    border-bottom-color: var(--accent);
+.btn-fixed-height {
+    height: 32px;
+    box-sizing: border-box;
 }
 
 /* === TABLES === */
@@ -536,12 +560,18 @@ tr:hover td {
     color: var(--text-primary);
     font-family: var(--font);
     font-size: 0.9375rem;
-    transition: border-color var(--transition);
+    transition: border-color var(--transition), background var(--transition);
     outline: none;
 }
 
 .form-input:focus {
-    border-color: var(--text-primary);
+    border-color: var(--accent);
+    background: var(--bg-l2);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.form-input::placeholder {
+    color: var(--text-muted);
 }
 
 .form-input-sm {
@@ -796,13 +826,7 @@ body[data-theme="white"] ::-webkit-calendar-picker-indicator {
     }
 }
 
-/* === CHART CONTAINER === */
-.chart-wrap {
-    position: relative;
-    width: 100%;
-    padding: 16px 0;
-}
-
+/* chart-wrap canvas stretch */
 .chart-wrap canvas {
     width: 100% !important;
 }
@@ -1169,16 +1193,6 @@ body[data-theme="white"] ::-webkit-calendar-picker-indicator {
 }
 
 /* === MICRO-ANIMATIONS === */
-.card {
-    transition: border-color var(--transition), transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.card:hover {
-    border-color: var(--border-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-}
-
 .stat-value {
     transition: color 0.3s ease;
 }
@@ -1273,22 +1287,7 @@ body[data-theme="white"] ::-webkit-calendar-picker-indicator {
     margin: 8px 0 4px;
 }
 
-/* === FORM INPUT POLISH === */
-.form-input {
-    transition: border-color var(--transition), padding var(--transition), background var(--transition);
-}
 
-.form-input:focus {
-    border: 1px solid var(--accent);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    background: var(--bg-l2);
-    box-shadow: 0 0 0 3px var(--accent-dim);
-}
-
-.form-input::placeholder {
-    color: var(--text-muted);
-}
 
 /* Hide number input spinners globally */
 input::-webkit-outer-spin-button,
@@ -1442,26 +1441,114 @@ input[type=number] {
 }
 
 .muscle-cell.heat-1 {
-    background: rgba(191, 255, 0, 0.1);
-    color: var(--accent);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
 }
 
 .muscle-cell.heat-2 {
-    background: rgba(191, 255, 0, 0.2);
-    color: var(--accent);
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
 }
 
 .muscle-cell.heat-3 {
-    background: rgba(191, 255, 0, 0.35);
-    color: var(--accent);
+    background: rgba(255, 255, 255, 0.4);
+    color: var(--text-primary);
 }
 
 .muscle-cell.heat-4 {
-    background: rgba(191, 255, 0, 0.5);
+    background: rgba(255, 255, 255, 0.8);
     color: var(--bg-l0);
 }
 
+/* === HORIZONTAL PROGRESS (Volume Comparison) === */
+.vol-compare-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+}
 
+.vol-compare-label {
+    width: 40px;
+}
+
+.vol-compare-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-l2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-right: 12px;
+}
+
+.vol-compare-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vol-compare-val {
+    width: 45px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* === REUSABLE MODAL/DETAIL CLASSES === */
+
+/* Section title used inside modals & detail views (replaces repeated inline style) */
+.section-title {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.section-title.mt {
+    margin-top: 20px;
+}
+
+/* Smaller label-caps variant for modal stat labels */
+.label-caps-sm {
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+}
+
+/* 4-column detail grid (modal stat rows) */
+.detail-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+/* 2-column detail grid (modal chart rows) */
+.detail-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* Extra spacing utilities */
+.mb-12 {
+    margin-bottom: 12px;
+}
+
+.gap-12 {
+    gap: 12px;
+}
+
+/* Form group without bottom margin */
+.form-group.mb-0 {
+    margin-bottom: 0;
+}
 
 /* === PRINT === */
 @media print {
@@ -1488,4 +1575,77 @@ input[type=number] {
         background: #fff;
         color: #000;
     }
+}
+
+/* === LEAFLET DARK THEME CONTROLS === */
+.leaflet-bar a, .leaflet-bar a:hover {
+    background-color: var(--bg-l1) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+.leaflet-bar {
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    overflow: hidden;
+}
+.leaflet-control-zoom-in, .leaflet-control-zoom-out {
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+.leaflet-control-layers {
+    background: var(--bg-l1) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    border-radius: var(--radius) !important;
+}
+.leaflet-control-layers-expanded {
+    padding: 8px 12px !important;
+}
+.leaflet-control-layers label {
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.leaflet-control-layers-toggle {
+    width: 30px !important;
+    height: 30px !important;
+    background-size: 16px 16px !important;
+    background-position: center !important;
+}
+
+/* === WHITE MODE OVERRIDES ===
+   Fix elements that use white/rgba(255,255,255,...) backgrounds —
+   invisible on a white canvas. Dark and OLED themes are unaffected. */
+
+/* Muscle heatmap: replace white-alpha levels with dark-alpha equivalents */
+body[data-theme="white"] .muscle-cell.heat-1 {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-secondary);
+}
+body[data-theme="white"] .muscle-cell.heat-2 {
+    background: rgba(0, 0, 0, 0.13);
+    color: var(--text-primary);
+}
+body[data-theme="white"] .muscle-cell.heat-3 {
+    background: rgba(0, 0, 0, 0.26);
+    color: var(--text-primary);
+}
+body[data-theme="white"] .muscle-cell.heat-4 {
+    background: rgba(0, 0, 0, 0.55);
+    color: #FFFFFF;
+}
+
+/* Progress comparison bars: "previous" bar was rgba(255,255,255,0.15) — invisible on white */
+body[data-theme="white"] .comp-bar-fill.previous {
+    background: rgba(0, 0, 0, 0.18);
+}
+
+/* Danger zone card border is already low-opacity red — fine — but card hover border needs no override */
+
+/* Scrollbar thumb in white mode */
+body[data-theme="white"] ::-webkit-scrollbar-thumb {
+    background: var(--border-hover);
 }

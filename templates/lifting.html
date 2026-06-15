@@ -2,70 +2,289 @@
 {% block title_suffix %} — Lifting{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2>Weight Training</h2>
-    <p>Hevy-logged lifting sessions from Strava</p>
-</div>
+<style>
+    .lifting-container {
+    }
 
-<!-- Stats Row -->
-<div class="grid grid-4 mb-24">
-    <div class="card"><div class="card-title">Total Volume</div><div class="stat-value" id="liftTotalVol">—</div><div class="stat-unit">kg all time</div></div>
-    <div class="card"><div class="card-title">Sessions</div><div class="stat-value" id="liftSessions">—</div><div class="stat-unit">logged</div></div>
-    <div class="card"><div class="card-title">Heaviest Lift</div><div class="stat-value" id="liftMax">—</div><div class="stat-unit">kg</div></div>
-    <div class="card"><div class="card-title">Avg Session Volume</div><div class="stat-value" id="liftAvgVol">—</div><div class="stat-unit">kg</div></div>
-</div>
+    .lift-stat-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
 
-<!-- Charts -->
-<div class="grid grid-2 mb-24">
-    <div class="card">
+    .lift-stat-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .lift-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+
+    .lift-stat-card:nth-child(1):hover {
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px var(--accent-dim) inset;
+    }
+
+    .lift-stat-card:nth-child(2):hover {
+        border-color: #00D2FF;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 210, 255, 0.15) inset;
+    }
+
+    .lift-stat-card:nth-child(3):hover {
+        border-color: #FF9F00;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 159, 0, 0.15) inset;
+    }
+
+    .lift-stat-card:nth-child(4):hover {
+        border-color: #A855F7;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(168, 85, 247, 0.15) inset;
+    }
+
+    .lift-card-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+    }
+
+    .lift-stat-card:nth-child(1) .lift-card-icon-wrap {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: rgba(191, 255, 0, 0.1);
+    }
+
+    .lift-stat-card:nth-child(2) .lift-card-icon-wrap {
+        color: #00D2FF;
+        background: rgba(0, 210, 255, 0.08);
+        border-color: rgba(0, 210, 255, 0.1);
+    }
+
+    .lift-stat-card:nth-child(3) .lift-card-icon-wrap {
+        color: #FF9F00;
+        background: rgba(255, 159, 0, 0.08);
+        border-color: rgba(255, 159, 0, 0.1);
+    }
+
+    .lift-stat-card:nth-child(4) .lift-card-icon-wrap {
+        color: #A855F7;
+        background: rgba(168, 85, 247, 0.08);
+        border-color: rgba(168, 85, 247, 0.1);
+    }
+
+    .lift-card-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+
+
+    /* Table & Container styling */
+    .lift-table-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .lift-table-card:hover {
+        border-color: var(--border-hover);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    #liftTable tr {
+        transition: all 0.2s ease;
+    }
+
+    #liftTable tr:hover td {
+        background: var(--bg-l2);
+    }
+
+    /* Detail Modal styling */
+    .modal-detail-card {
+        background: var(--bg-l2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-bottom: 12px;
+        transition: border-color 0.2s ease;
+    }
+
+    .modal-detail-card:hover {
+        border-color: var(--border-hover);
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="lifting-container page-fade-in">
+    <div class="page-header">
+        <h2>Weight Training</h2>
+        <p>Hevy-logged lifting sessions from Strava</p>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="grid grid-4 mb-24">
+        <!-- Total Volume -->
+        <div class="lift-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Total Volume</span>
+                <div class="lift-card-icon-wrap">
+                    <svg class="lift-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />
+                        <path d="m2.5 21.5 1.4-1.4M20.1 3.9l1.4-1.4" />
+                        <path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" />
+                        <path d="m9.6 14.4 4.8-4.8" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="liftTotalVol">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">kg all time</div>
+            </div>
+        </div>
+
+        <!-- Sessions -->
+        <div class="lift-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Sessions</span>
+                <div class="lift-card-icon-wrap">
+                    <svg class="lift-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="liftSessions">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">logged</div>
+            </div>
+        </div>
+
+        <!-- Heaviest Lift -->
+        <div class="lift-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Heaviest Lift</span>
+                <div class="lift-card-icon-wrap">
+                    <svg class="lift-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6v8a6 6 0 0 0 12 0V4h1.5a2.5 2.5 0 0 1 0 5H18"/>
+                        <path d="M12 18v4m-4 0h8"/>
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="liftMax">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">kg single set</div>
+            </div>
+        </div>
+
+        <!-- Avg Session Volume -->
+        <div class="lift-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Avg Session Volume</span>
+                <div class="lift-card-icon-wrap">
+                    <svg class="lift-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                        <polyline points="17 6 23 6 23 12" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="liftAvgVol">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">kg session average</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-2 mb-24">
+        <div class="chart-card">
+            <div class="card-header"><div class="card-title">Muscle Groups (Radar)</div></div>
+            <div class="chart-wrap" style="height: 280px;"><canvas id="muscleChart"></canvas></div>
+        </div>
+        <div class="chart-card flex flex-col">
+            <div class="card-header"><div class="card-title">Muscle Groups (Heatmap)</div></div>
+            <div id="muscleHeatmap" class="muscle-grid mb-24"></div>
+            
+            <div class="mt-auto" style="margin-top: 40px;">
+                <div class="section-title">7-Day Volume Trend</div>
+                <div id="volumeCompareContainer"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="chart-card mb-24">
         <div class="card-header"><div class="card-title">Volume Over Time</div></div>
         <div class="chart-wrap"><canvas id="volumeChart"></canvas></div>
     </div>
-    <div class="card">
-        <div class="card-header"><div class="card-title">Muscle Groups Trained</div></div>
-        <div class="chart-wrap"><canvas id="muscleChart"></canvas></div>
-    </div>
-</div>
 
-<!-- Weight Progression -->
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">Exercise Progression</div>
-        <select class="form-input" id="progressExercise" onchange="loadProgression()" style="width:200px;padding:6px 12px;font-size:0.8125rem;">
-            <option value="">Select exercise...</option>
-        </select>
-    </div>
-    <div class="chart-wrap hidden" id="progressionChartWrap"><canvas id="progressionChart"></canvas></div>
-    <div id="progressionEmpty" class="empty-state" style="padding:24px 0;"><p>Select an exercise above to see weight progression</p></div>
-</div>
-
-<!-- Sessions Table -->
-<div class="card">
-    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="card-title">Recent Sessions</div>
-        <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px;" onchange="loadLifting()">
-            <option value="15" selected>15</option>
-            <option value="30">30</option>
-            <option value="50">50</option>
-            <option value="-1">All time</option>
-        </select>
-    </div>
-    <div class="table-container">
-        <table>
-            <thead><tr><th>Date</th><th>Session</th><th>Duration</th><th>Exercises</th><th>Volume</th><th></th></tr></thead>
-            <tbody id="liftTable"></tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Detail Modal -->
-<div class="modal-overlay" id="liftModal">
-    <div class="modal" style="max-width:720px;">
-        <div class="modal-header">
-            <h3 id="liftModalTitle">Session Details</h3>
-            <button class="modal-close" onclick="document.getElementById('liftModal').classList.remove('active')">×</button>
+    <!-- Weight Progression -->
+    <div class="chart-card mb-24">
+        <div class="card-header">
+            <div class="card-title">Exercise Progression</div>
+            <select class="form-input" id="progressExercise" onchange="loadProgression()" style="width:200px;padding:6px 12px;font-size:0.8125rem;">
+            </select>
         </div>
-        <div class="modal-body" id="liftModalBody"></div>
+        <div class="chart-wrap hidden" id="progressionChartWrap"><canvas id="progressionChart"></canvas></div>
+        <div id="progressionEmpty" class="empty-state" style="padding:24px 0;"><p>No exercise data available for progression</p></div>
+    </div>
+
+    <!-- Sessions Table -->
+    <div class="lift-table-card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="card-title">Recent Sessions</div>
+            <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px;" onchange="updateLiftingTable()">
+                <option value="15" selected>15</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="-1">All time</option>
+            </select>
+        </div>
+        <div class="table-container page-fade-in">
+            <table>
+                <thead><tr><th>Date</th><th>Session</th><th>Duration</th><th>Exercises</th><th>Volume</th><th></th></tr></thead>
+                <tbody id="liftTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" id="liftModal">
+        <div class="modal" style="max-width:760px;">
+            <div class="modal-header">
+                <h3 id="liftModalTitle">Session Details</h3>
+                <button class="modal-close" onclick="document.getElementById('liftModal').classList.remove('active')">×</button>
+            </div>
+            <div class="modal-body" id="liftModalBody"></div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -73,13 +292,25 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 <script>
+// Escape HTML Helper
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 document.addEventListener('DOMContentLoaded', loadLifting);
+
+let allLiftingDetailed = null;
 
 async function loadLifting() {
     try {
-        const limit = document.getElementById('recentLimit') ? document.getElementById('recentLimit').value : 15;
         const [activitiesRes, musclesRes, overviewRes] = await Promise.all([
-            fetch(`/api/activities?type=lifting&limit=${limit}`),
+            fetch(`/api/activities?type=lifting&limit=-1`),
             fetch('/api/stats/muscles?days=30'),
             fetch('/api/stats/overview')
         ]);
@@ -97,42 +328,73 @@ async function loadLifting() {
 
         // Load details for each session
         const detailedPromises = activities.map(a => fetch(`/api/activities/${a.id}`).then(r=>r.json()));
-        const detailed = await Promise.all(detailedPromises);
+        allLiftingDetailed = await Promise.all(detailedPromises);
 
         // Charts
-        renderVolumeOverTime(detailed);
+        renderVolumeOverTime(allLiftingDetailed);
         renderMuscleRadar(muscles);
+        renderMuscleHeatmap(muscles);
+        renderVolumeComparison();
 
         // Populate exercise dropdown
-        const exercises = new Set();
-        detailed.forEach(d => {
-            if (d.lifting_details) d.lifting_details.forEach(l => exercises.add(l.exercise_name));
+        const exerciseCounts = {};
+        allLiftingDetailed.forEach(d => {
+            if (d.lifting_details) {
+                const sessionExercises = new Set(
+                    d.lifting_details
+                        .filter(l => !l.is_warmup && l.exercise_name)
+                        .map(l => l.exercise_name)
+                );
+                sessionExercises.forEach(ex => {
+                    exerciseCounts[ex] = (exerciseCounts[ex] || 0) + 1;
+                });
+            }
         });
         const select = document.getElementById('progressExercise');
-        [...exercises].sort().forEach(ex => {
-            const opt = document.createElement('option');
-            opt.value = ex;
-            opt.textContent = ex;
-            select.appendChild(opt);
-        });
-
-        // Table
-        const tbody = document.getElementById('liftTable');
-        if (!detailed.length) {
-            tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>No lifting sessions yet. Sync Hevy activities from Strava.</p></div></td></tr>';
-            return;
+        select.innerHTML = '';
+        const validExercises = Object.keys(exerciseCounts).filter(ex => exerciseCounts[ex] > 1).sort();
+        
+        if (validExercises.length === 0) {
+            select.innerHTML = '<option value="">No exercises with progression</option>';
+            document.getElementById('progressionChartWrap').classList.add('hidden');
+            document.getElementById('progressionEmpty').classList.remove('hidden');
+        } else {
+            validExercises.forEach(ex => {
+                const opt = document.createElement('option');
+                opt.value = ex;
+                opt.textContent = ex;
+                select.appendChild(opt);
+            });
+            select.value = validExercises[0];
+            loadProgression();
         }
-        tbody.innerHTML = detailed.map(d => {
-            const date = (d.start_date_local||'').substring(0,10);
-            const dur = d.moving_time ? Math.round(d.moving_time/60)+'min' : '—';
-            const exCount = d.lifting_details ? new Set(d.lifting_details.map(l=>l.exercise_name)).size : 0;
-            const vol = d.lifting_details ? d.lifting_details.filter(l=>!l.is_warmup).reduce((s,l)=>s+(l.weight||0)*(l.reps||0),0) : 0;
-            return `<tr onclick="showLiftDetail(${d.id})" style="cursor:pointer;">
-                <td class="td-muted">${date}</td><td>${d.name||'—'}</td><td class="data-mono">${dur}</td>
-                <td class="data-mono">${exCount}</td><td class="data-mono">${Math.round(vol).toLocaleString()}kg</td>
-                <td><span class="badge badge-accent">VIEW</span></td></tr>`;
-        }).join('');
+
+        updateLiftingTable();
     } catch(e) { console.error(e); }
+}
+
+function updateLiftingTable() {
+    if (!allLiftingDetailed) return;
+    const limit = document.getElementById('recentLimit') ? parseInt(document.getElementById('recentLimit').value) : 15;
+    const tbody = document.getElementById('liftTable');
+
+    if (!allLiftingDetailed.length) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>No lifting sessions yet. Sync Hevy activities from Strava.</p></div></td></tr>';
+        return;
+    }
+
+    const tableDetailed = limit === -1 ? allLiftingDetailed : allLiftingDetailed.slice(0, limit);
+
+    tbody.innerHTML = tableDetailed.map(d => {
+        const date = (d.start_date_local||'').substring(0,10);
+        const dur = d.moving_time ? Math.round(d.moving_time/60)+'min' : '—';
+        const exCount = d.lifting_details ? new Set(d.lifting_details.map(l=>l.exercise_name)).size : 0;
+        const vol = d.lifting_details ? d.lifting_details.filter(l=>!l.is_warmup).reduce((s,l)=>s+(l.weight||0)*(l.reps||0),0) : 0;
+        return `<tr onclick="showLiftDetail(${d.id})" style="cursor:pointer;">
+            <td class="td-muted">${date}</td><td style="font-weight:600;">${escapeHtml(d.name||'—')}</td><td class="data-mono">${dur}</td>
+            <td class="data-mono">${exCount}</td><td class="data-mono">${Math.round(vol).toLocaleString()}kg</td>
+            <td><span class="badge badge-accent" style="font-size:0.625rem; padding: 2px 6px;">VIEW</span></td></tr>`;
+    }).join('');
 }
 
 async function showLiftDetail(id) {
@@ -151,22 +413,25 @@ async function showLiftDetail(id) {
             grouped[d.exercise_name].push(d);
         });
 
-        let html = `<div class="flex gap-16 mb-16">
-            <div><div class="label-caps">Total Volume</div><div class="data-md">${Math.round(totalVol).toLocaleString()} kg</div></div>
-            <div><div class="label-caps">Exercises</div><div class="data-md">${Object.keys(grouped).length}</div></div>
-            <div><div class="label-caps">Duration</div><div class="data-md">${data.moving_time?Math.round(data.moving_time/60)+'min':'—'}</div></div>
-            <div><div class="label-caps">Calories</div><div class="data-md">${data.calories?Math.round(data.calories)+' kcal':'—'}</div></div>
+        let html = `<div class="modal-detail-card">
+            <div class="section-title">Session Overview</div>
+            <div class="detail-grid-4">
+                <div><div class="label-caps" style="font-size:0.6rem;">Total Volume</div><div class="data-md" style="color:var(--accent); font-weight:700;">${Math.round(totalVol).toLocaleString()} kg</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Exercises</div><div class="data-md">${Object.keys(grouped).length}</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Duration</div><div class="data-md">${data.moving_time?Math.round(data.moving_time/60)+'min':'—'}</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Calories</div><div class="data-md">${data.calories?Math.round(data.calories)+' kcal':'—'}</div></div>
+            </div>
         </div>`;
 
         for (const [name, sets] of Object.entries(grouped)) {
             const muscle = sets[0].muscle_group || '';
-            html += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-                <div class="flex justify-between items-center mb-8">
-                    <span style="font-weight:600;">${name}</span>
-                    ${muscle ? `<span class="badge">${muscle}</span>` : ''}
+            html += `<div class="modal-detail-card" style="margin-top:12px;">
+                <div class="flex justify-between items-center mb-12">
+                    <span style="font-weight:700; font-size:0.9rem; color:var(--text-primary);">${escapeHtml(name)}</span>
+                    ${muscle ? `<span class="badge badge-accent">${escapeHtml(muscle)}</span>` : ''}
                 </div>
-                <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:4px 16px;font-size:0.8125rem;">
-                    <div class="label-caps">Set</div><div class="label-caps">Weight</div><div class="label-caps">Reps</div><div class="label-caps">Vol</div>
+                <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px 16px;font-size:0.8125rem; padding-top:10px;">
+                    <div class="label-caps" style="font-size:0.6rem;">Set</div><div class="label-caps" style="font-size:0.6rem;">Weight</div><div class="label-caps" style="font-size:0.6rem;">Reps</div><div class="label-caps" style="font-size:0.6rem;">Vol</div>
                     ${sets.map(s => `<div class="data-mono ${s.is_warmup?'td-muted':''}">${s.is_warmup?'W':''}${s.set_number}</div>
                         <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.weight}${s.weight_unit||'kg'}</div>
                         <div class="data-mono ${s.is_warmup?'td-muted':''}">${s.reps}</div>
@@ -183,17 +448,12 @@ async function loadProgression() {
     const exercise = document.getElementById('progressExercise').value;
     const emptyEl = document.getElementById('progressionEmpty');
     const chartWrap = document.getElementById('progressionChartWrap');
-    if (!exercise) { destroyChart('progressionChart'); chartWrap.classList.add('hidden'); emptyEl.classList.remove('hidden'); return; }
+    if (!exercise || !allLiftingDetailed) { destroyChart('progressionChart'); chartWrap.classList.add('hidden'); emptyEl.classList.remove('hidden'); return; }
     emptyEl.classList.add('hidden');
 
     try {
-        const limit = document.getElementById('recentLimit') ? document.getElementById('recentLimit').value : 15;
-        const res = await fetch(`/api/activities?type=lifting&limit=${limit}`);
-        const activities = await res.json();
         const points = [];
-        for (const a of activities) {
-            const dRes = await fetch(`/api/activities/${a.id}`);
-            const d = await dRes.json();
+        for (const d of allLiftingDetailed) {
             if (d.lifting_details) {
                 const sets = d.lifting_details.filter(l => l.exercise_name === exercise && !l.is_warmup);
                 if (sets.length) {
@@ -217,6 +477,48 @@ async function loadProgression() {
             options: { ...CHART_DEFAULTS, scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, title: { display:true, text:'kg', color:CHART_COLORS.grey } } } }
         });
     } catch(e) { console.error(e); }
+}
+
+function renderVolumeComparison() {
+    const now = new Date();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+    let thisVol = 0;
+    let lastVol = 0;
+
+    allLiftingDetailed.forEach(d => {
+        const actDate = new Date(d.start_date_local);
+        const diff = now - actDate;
+        if (diff <= oneWeek) {
+            if (d.lifting_details) {
+                thisVol += d.lifting_details.filter(l => !l.is_warmup).reduce((s, l) => s + (l.weight||0)*(l.reps||0), 0);
+            }
+        } else if (diff <= oneWeek * 2) {
+            if (d.lifting_details) {
+                lastVol += d.lifting_details.filter(l => !l.is_warmup).reduce((s, l) => s + (l.weight||0)*(l.reps||0), 0);
+            }
+        }
+    });
+
+    const maxVol = Math.max(thisVol, lastVol, 1);
+    // Use timeout so transition animates from 0
+    const container = document.getElementById('volumeCompareContainer');
+    container.innerHTML = `
+        <div class="vol-compare-row" style="color: var(--text-primary);">
+            <div class="vol-compare-label">THIS</div>
+            <div class="vol-compare-bar-bg"><div class="vol-compare-bar-fill" id="volFillThis" style="width: 0%; background: var(--text-primary);"></div></div>
+            <div class="vol-compare-val">${Math.round(thisVol).toLocaleString()}</div>
+        </div>
+        <div class="vol-compare-row">
+            <div class="vol-compare-label">LAST</div>
+            <div class="vol-compare-bar-bg"><div class="vol-compare-bar-fill" id="volFillLast" style="width: 0%; background: var(--text-muted);"></div></div>
+            <div class="vol-compare-val">${Math.round(lastVol).toLocaleString()}</div>
+        </div>
+    `;
+
+    setTimeout(() => {
+        document.getElementById('volFillThis').style.width = ((thisVol / maxVol) * 100) + '%';
+        document.getElementById('volFillLast').style.width = ((lastVol / maxVol) * 100) + '%';
+    }, 50);
 }
 </script>
 {% endblock %}

@@ -24,6 +24,7 @@ def create_app():
     from routes.goals import goals_bp
     from routes.settings import settings_bp
     from routes.nutrition import nutrition_bp
+    from routes.health_connect import health_connect_bp
 
     app.register_blueprint(strava_bp)
     app.register_blueprint(ai_bp)
@@ -31,12 +32,18 @@ def create_app():
     app.register_blueprint(goals_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(nutrition_bp)
+    app.register_blueprint(health_connect_bp)
 
     # Page routes
     @app.route("/")
     def index():
         settings = get_all_settings()
         return render_template("dashboard.html", settings=settings, active_tab="dashboard")
+
+    @app.route("/health_data")
+    def health_data():
+        settings = get_all_settings()
+        return render_template("health_data.html", settings=settings, active_tab="health_data")
 
     @app.route("/running")
     def running():

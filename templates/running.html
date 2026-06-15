@@ -2,69 +2,326 @@
 {% block title_suffix %} — Running{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2>Running</h2>
-    <p>Your runs, paces, and distances</p>
-</div>
+<style>
+    .running-container {
+    }
 
-<!-- Stats -->
-<div class="grid grid-4 mb-24">
-    <div class="card"><div class="card-title">Total Runs</div><div class="stat-value" id="runCount">—</div><div class="stat-unit">logged</div></div>
-    <div class="card"><div class="card-title">Total Distance</div><div class="stat-value" id="runDist">—</div><div class="stat-unit">km</div></div>
-    <div class="card"><div class="card-title">Best Pace</div><div class="stat-value" id="runPace">—</div><div class="stat-unit">min/km</div></div>
-    <div class="card"><div class="card-title">Longest Run</div><div class="stat-value" id="runLongest">—</div><div class="stat-unit">km</div></div>
-</div>
+    .run-stat-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
 
-<!-- Charts -->
-<div class="grid grid-2 mb-24">
-    <div class="card">
-        <div class="card-header"><div class="card-title">Pace Trend</div></div>
-        <div class="chart-wrap"><canvas id="paceTrendChart"></canvas></div>
-    </div>
-    <div class="card">
-        <div class="card-header"><div class="card-title">Distance Per Run</div></div>
-        <div class="chart-wrap"><canvas id="distanceChart"></canvas></div>
-    </div>
-</div>
+    .run-stat-card:hover {
+        transform: translateY(-4px);
+    }
 
-<div class="grid grid-2 mb-24">
-    <div class="card">
-        <div class="card-header"><div class="card-title">Heart Rate Zones</div></div>
-        <div class="chart-wrap"><canvas id="hrZoneChart"></canvas></div>
-    </div>
-    <div class="card">
-        <div class="card-header"><div class="card-title">Elevation Gain</div></div>
-        <div class="chart-wrap"><canvas id="elevationChart"></canvas></div>
-    </div>
-</div>
+    .run-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
 
-<!-- Runs Table -->
-<div class="card">
-    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="card-title">All Runs</div>
-        <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px;" onchange="loadRunning()">
-            <option value="15" selected>15</option>
-            <option value="30">30</option>
-            <option value="50">50</option>
-            <option value="-1">All time</option>
-        </select>
-    </div>
-    <div class="table-container">
-        <table>
-            <thead><tr><th>Date</th><th>Name</th><th>Distance</th><th>Pace</th><th>Duration</th><th>Avg HR</th><th>Elev</th><th>Calories</th><th></th></tr></thead>
-            <tbody id="runTable"></tbody>
-        </table>
-    </div>
-</div>
+    .run-stat-card:nth-child(1):hover {
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px var(--accent-dim) inset;
+    }
 
-<!-- Run Detail Modal -->
-<div class="modal-overlay" id="runModal">
-    <div class="modal" style="max-width:720px;">
-        <div class="modal-header">
-            <h3 id="runModalTitle">Run Details</h3>
-            <button class="modal-close" onclick="document.getElementById('runModal').classList.remove('active')">×</button>
+    .run-stat-card:nth-child(2):hover {
+        border-color: #00D2FF;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 210, 255, 0.15) inset;
+    }
+
+    .run-stat-card:nth-child(3):hover {
+        border-color: #FF9F00;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 159, 0, 0.15) inset;
+    }
+
+    .run-stat-card:nth-child(4):hover {
+        border-color: #A855F7;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(168, 85, 247, 0.15) inset;
+    }
+
+    .run-card-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+    }
+
+    .run-stat-card:nth-child(1) .run-card-icon-wrap {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: rgba(191, 255, 0, 0.1);
+    }
+
+    .run-stat-card:nth-child(2) .run-card-icon-wrap {
+        color: #00D2FF;
+        background: rgba(0, 210, 255, 0.08);
+        border-color: rgba(0, 210, 255, 0.1);
+    }
+
+    .run-stat-card:nth-child(3) .run-card-icon-wrap {
+        color: #FF9F00;
+        background: rgba(255, 159, 0, 0.08);
+        border-color: rgba(255, 159, 0, 0.1);
+    }
+
+    .run-stat-card:nth-child(4) .run-card-icon-wrap {
+        color: #A855F7;
+        background: rgba(168, 85, 247, 0.08);
+        border-color: rgba(168, 85, 247, 0.1);
+    }
+
+    .run-card-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+
+
+    /* Table & Container styling */
+    .run-table-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .run-table-card:hover {
+        border-color: var(--border-hover);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    #runTable tr {
+        transition: all 0.2s ease;
+    }
+
+    #runTable tr:hover td {
+        background: var(--bg-l2);
+    }
+
+    .run-pb-row {
+        border-left: 3px solid var(--accent) !important;
+    }
+
+    /* Detail Modal styling */
+    .modal-detail-card {
+        background: var(--bg-l2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-bottom: 12px;
+        transition: border-color 0.2s ease;
+    }
+
+    .modal-detail-card:hover {
+        border-color: var(--border-hover);
+    }
+
+    .modal-chart-container {
+        background: rgba(0,0,0,0.2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        height: 200px;
+        position: relative;
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .pr-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .pr-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: var(--bg-l2);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        transition: border-color 0.2s;
+    }
+    .pr-item:hover {
+        border-color: var(--border-hover);
+    }
+</style>
+
+<div class="running-container page-fade-in">
+    <div class="page-header">
+        <h2>Running</h2>
+        <p>Your runs, paces, and distances</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-4 mb-24">
+        <!-- Total Runs -->
+        <div class="run-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Total Runs</span>
+                <div class="run-card-icon-wrap">
+                    <svg class="run-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <circle cx="13" cy="5" r="2" />
+                        <path d="M4 17l5 1 .75-1.5M15 21v-4l-4-3 1-6M7 12V9l5-1 3 3 3 1" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="runCount">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">runs completed</div>
+            </div>
         </div>
-        <div class="modal-body" id="runModalBody"></div>
+        
+        <!-- Total Distance -->
+        <div class="run-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Total Distance</span>
+                <div class="run-card-icon-wrap">
+                    <svg class="run-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="runDist">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">kilometers logged</div>
+            </div>
+        </div>
+
+        <!-- Best Pace -->
+        <div class="run-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Best Pace</span>
+                <div class="run-card-icon-wrap">
+                    <svg class="run-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <circle cx="12" cy="13" r="8"/>
+                        <path d="M12 9v4l2 2"/>
+                        <path d="M12 2v3"/>
+                        <path d="M9 2h6"/>
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="runPace">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">minutes / km</div>
+            </div>
+        </div>
+
+        <!-- Longest Run -->
+        <div class="run-stat-card">
+            <div class="flex justify-between items-center">
+                <span class="label-caps">Longest Run</span>
+                <div class="run-card-icon-wrap">
+                    <svg class="run-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6v8a6 6 0 0 0 12 0V4h1.5a2.5 2.5 0 0 1 0 5H18"/>
+                        <path d="M12 18v4m-4 0h8"/>
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <div class="stat-value" id="runLongest">—</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary);">km single session</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <!-- Charts Row 1 -->
+    <div class="grid grid-2 mb-24">
+        <div class="chart-card">
+            <div class="card-header"><div class="card-title">Pace Trend <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted); margin-left:8px;">(All Time)</span></div></div>
+            <div class="chart-wrap"><canvas id="paceTrendChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <div class="card-header"><div class="card-title">Weekly Mileage <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted); margin-left:8px;">(All Time)</span></div></div>
+            <div class="chart-wrap"><canvas id="weeklyMileageChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="grid grid-2 mb-24">
+        <div class="chart-card" style="display:flex; flex-direction:column;">
+            <div class="card-header">
+                <div class="card-title">Heart Rate Zones <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted); margin-left:8px;">(All Time)</span></div>
+            </div>
+            <div style="display:flex; flex:1; gap:20px; align-items:center; padding-top: 10px;">
+                <div class="chart-wrap" style="flex:1; max-width:220px; position:relative;" id="hrZoneWrap">
+                    <canvas id="hrZoneChart"></canvas>
+                </div>
+                <div id="hrZoneChartLegendDetail" style="flex:1.5; display:flex; flex-direction:column; gap:12px;"></div>
+                <div id="hrZoneEmpty" class="empty-state hidden" style="flex:1; align-items:center; justify-content:center;"><p>No heart rate data available</p></div>
+            </div>
+        </div>
+        <div class="chart-card">
+            <div class="card-header"><div class="card-title">Elevation Gain <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted); margin-left:8px;">(All Time)</span></div></div>
+            <div class="chart-wrap"><canvas id="elevationChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Charts Row 3 (Full Width Elements) -->
+    <div class="card mb-24" style="display:flex; flex-direction:column;">
+        <div class="card-header">
+            <div class="card-title">Top 5 Longest Runs <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted); margin-left:8px;">(All Time)</span></div>
+        </div>
+        <div id="longestRunsList" class="pr-list" style="flex:1;"></div>
+    </div>
+
+    <!-- Runs Table -->
+    <div class="run-table-card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="card-title">All Runs</div>
+            <select id="recentLimit" class="form-input" style="width:100px;padding:4px 8px;font-size:0.8125rem;height:30px;" onchange="updateRunTable()">
+                <option value="15" selected>15</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="-1">All time</option>
+            </select>
+        </div>
+        <div class="table-container page-fade-in">
+            <table>
+                <thead><tr><th>Date</th><th>Name</th><th>Distance</th><th>Pace</th><th>Duration</th><th>Avg HR</th><th>Elev</th><th>Calories</th><th></th></tr></thead>
+                <tbody id="runTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Run Detail Modal -->
+    <div class="modal-overlay" id="runModal">
+        <div class="modal" style="max-width:760px;">
+            <div class="modal-header">
+                <h3 id="runModalTitle">Run Details</h3>
+                <button class="modal-close" onclick="document.getElementById('runModal').classList.remove('active')">×</button>
+            </div>
+            <div class="modal-body" id="runModalBody"></div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -74,6 +331,17 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 <script>
+// Escape HTML Helper
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // Polyline decoder (Google's encoded polyline algorithm)
 function decodePolyline(encoded) {
     const points = [];
@@ -92,11 +360,13 @@ function decodePolyline(encoded) {
 
 document.addEventListener('DOMContentLoaded', loadRunning);
 
+let allRunningData = null;
+
 async function loadRunning() {
     try {
-        const limit = document.getElementById('recentLimit') ? document.getElementById('recentLimit').value : 15;
-        const res = await fetch(`/api/activities?type=running&limit=${limit}`);
-        const runs = await res.json();
+        const res = await fetch(`/api/activities?type=running&limit=-1`);
+        allRunningData = await res.json();
+        const runs = allRunningData;
 
         // Stats
         animateValue(document.getElementById('runCount'), runs.length);
@@ -110,38 +380,77 @@ async function loadRunning() {
         const longest = runs.reduce((m,r) => Math.max(m, r.distance||0), 0) / 1000;
         animateDecimal(document.getElementById('runLongest'), longest);
 
-        const pbPace = bestPace;
-        const pbDist = longest * 1000;
-
         // Charts
         renderPaceTrend(runs);
-        renderDistanceOverTime(runs);
+        renderWeeklyMileage(runs);
         renderHRZones(runs);
         renderElevation(runs);
 
-        // Table
-        const tbody = document.getElementById('runTable');
-        if (!runs.length) {
-            tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>No runs synced yet. Connect Strava to import.</p></div></td></tr>';
-            return;
+        // Longest Runs Leaderboard
+        const topRuns = [...runs].sort((a,b) => (b.distance||0) - (a.distance||0)).slice(0, 5);
+        const longestEl = document.getElementById('longestRunsList');
+        if (topRuns.length === 0) {
+            longestEl.innerHTML = '<div class="empty-state" style="padding:20px 0;"><p>No runs found.</p></div>';
+        } else {
+            longestEl.innerHTML = topRuns.map((r, i) => {
+                const dist = (r.distance/1000).toFixed(2);
+                return `<div class="pr-item" style="cursor:pointer;" onclick="showRunDetail(${r.id})">
+                    <div style="font-weight:600; font-size:0.8125rem; color:var(--text-primary);">${escapeHtml(r.name||'Run')}</div>
+                    <div style="font-weight:700; font-size:0.8125rem; color:var(--accent);">${dist} km</div>
+                </div>`;
+            }).join('');
         }
-        tbody.innerHTML = runs.map(r => {
-            const date = (r.start_date_local||'').substring(0,10);
-            const dist = r.distance ? (r.distance/1000).toFixed(2) : '—';
-            const pace = (r.distance > 0 && r.moving_time > 0) ? formatPace((r.moving_time/60)/(r.distance/1000)) : '—';
-            const dur = r.moving_time ? formatDuration(r.moving_time) : '—';
-            const hr = r.average_heartrate ? Math.round(r.average_heartrate) : '—';
-            const elev = r.total_elevation_gain ? Math.round(r.total_elevation_gain)+'m' : '—';
-            const cal = r.calories ? Math.round(r.calories) : '—';
-            const isPB = (r.distance === pbDist) || (r.distance > 0 && r.moving_time > 0 && Math.abs((r.moving_time/60)/(r.distance/1000) - pbPace) < 0.01);
 
-            return `<tr onclick="showRunDetail(${r.id})" style="cursor:pointer;" class="${isPB ? 'card-pb' : ''}" ${isPB?'style="border-left:3px solid var(--accent);cursor:pointer;"':''}>
-                <td class="td-muted">${date}</td><td>${r.name||'—'} ${isPB?'<span class="badge badge-accent" style="margin-left:4px;">PB</span>':''}</td>
-                <td class="data-mono">${dist} km</td><td class="data-mono">${pace}</td><td class="data-mono">${dur}</td>
-                <td class="data-mono">${hr}</td><td class="data-mono">${elev}</td><td class="data-mono">${cal}</td>
-                <td><span class="badge badge-accent">VIEW</span></td></tr>`;
-        }).join('');
+        updateRunTable();
     } catch(e) { console.error(e); }
+}
+
+function updateRunTable() {
+    if (!allRunningData) return;
+    const limit = document.getElementById('recentLimit') ? parseInt(document.getElementById('recentLimit').value) : 15;
+    
+    const paces = allRunningData.filter(r => r.distance > 0 && r.moving_time > 0).map(r => (r.moving_time/60)/(r.distance/1000));
+    const pbPace = paces.length ? Math.min(...paces) : 0;
+    const longest = allRunningData.reduce((m,r) => Math.max(m, r.distance||0), 0) / 1000;
+    const pbDist = longest * 1000;
+
+    const tbody = document.getElementById('runTable');
+    if (!allRunningData.length) {
+        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>No runs synced yet. Connect Strava to import.</p></div></td></tr>';
+        return;
+    }
+
+    const tableRuns = limit === -1 ? allRunningData : allRunningData.slice(0, limit);
+
+    tbody.innerHTML = tableRuns.map(r => {
+        const date = (r.start_date_local||'').substring(0,10);
+        const dist = r.distance ? (r.distance/1000).toFixed(2) : '—';
+        const pace = (r.distance > 0 && r.moving_time > 0) ? formatPace((r.moving_time/60)/(r.distance/1000)) : '—';
+        const dur = r.moving_time ? formatDuration(r.moving_time) : '—';
+        const hr = r.average_heartrate ? Math.round(r.average_heartrate) : '—';
+        const elev = r.total_elevation_gain ? Math.round(r.total_elevation_gain)+'m' : '—';
+        const cal = r.calories ? Math.round(r.calories) : '—';
+        const isPB = (r.distance === pbDist) || (r.distance > 0 && r.moving_time > 0 && Math.abs((r.moving_time/60)/(r.distance/1000) - pbPace) < 0.01);
+
+        const rowClass = isPB ? 'run-pb-row' : '';
+
+        return `<tr onclick="showRunDetail(${r.id})" class="${rowClass}" style="cursor:pointer;">
+            <td class="td-muted">${date}</td>
+            <td style="font-weight:600;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span>${escapeHtml(r.name||'—')}</span>
+                    ${isPB ? '<span class="badge badge-accent" style="font-size:0.625rem; padding: 1px 4px;">PB</span>' : ''}
+                </div>
+            </td>
+            <td class="data-mono">${dist} km</td>
+            <td class="data-mono">${pace}</td>
+            <td class="data-mono">${dur}</td>
+            <td class="data-mono">${hr}</td>
+            <td class="data-mono">${elev}</td>
+            <td class="data-mono">${cal}</td>
+            <td><span class="badge badge-accent" style="font-size:0.625rem; padding: 2px 6px;">VIEW</span></td>
+        </tr>`;
+    }).join('');
 }
 
 let runMapInstance = null;
@@ -178,50 +487,85 @@ async function showRunDetail(id) {
             html += `<div id="runDetailMap" style="height:240px;border-radius:var(--radius);overflow:hidden;margin-bottom:16px;border:1px solid var(--border);"></div>`;
         }
 
-        // Stats grid
-        html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-            <div><div class="label-caps">Distance</div><div class="data-md">${dist} km</div></div>
-            <div><div class="label-caps">Duration</div><div class="data-md">${dur}</div></div>
-            <div><div class="label-caps">Pace</div><div class="data-md">${pace} /km</div></div>
-            <div><div class="label-caps">Calories</div><div class="data-md">${cal} kcal</div></div>
+        // Stats grid - Core Performance
+        html += `<div class="modal-detail-card">
+            <div class="section-title">Core Performance</div>
+            <div class="detail-grid-4">
+                <div><div class="label-caps" style="font-size:0.6rem;">Distance</div><div class="data-md" style="color:var(--accent); font-weight:700;">${dist} km</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Duration</div><div class="data-md">${dur}</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Pace</div><div class="data-md">${pace} /km</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Calories</div><div class="data-md">${cal} kcal</div></div>
+            </div>
         </div>`;
 
-        html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-            <div><div class="label-caps">Avg Speed</div><div class="data-md">${avgSpeed} km/h</div></div>
-            <div><div class="label-caps">Max Speed</div><div class="data-md">${maxSpeed} km/h</div></div>
-            <div><div class="label-caps">Elevation</div><div class="data-md">${elev} m</div></div>
-            <div><div class="label-caps">Cadence</div><div class="data-md">${cadence} spm</div></div>
+        // Stats grid - Speed & Elevation
+        html += `<div class="modal-detail-card">
+            <div class="section-title">Speed &amp; Elevation</div>
+            <div class="detail-grid-4">
+                <div><div class="label-caps" style="font-size:0.6rem;">Avg Speed</div><div class="data-md">${avgSpeed} km/h</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Max Speed</div><div class="data-md">${maxSpeed} km/h</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Elevation</div><div class="data-md">${elev} m</div></div>
+                <div><div class="label-caps" style="font-size:0.6rem;">Cadence</div><div class="data-md">${cadence} spm</div></div>
+            </div>
         </div>`;
 
+        // Stats grid - Cardiac Metrics
         if (data.average_heartrate) {
-            html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;padding-top:12px;border-top:1px solid var(--border);">
-                <div><div class="label-caps">Avg HR</div><div class="data-md" style="color:var(--danger);">${hr} bpm</div></div>
-                <div><div class="label-caps">Max HR</div><div class="data-md" style="color:var(--danger);">${hrMax} bpm</div></div>
-                <div><div class="label-caps">Suffer Score</div><div class="data-md">${data.suffer_score||'—'}</div></div>
-                <div><div class="label-caps">Date</div><div class="data-md">${date}</div></div>
+            html += `<div class="modal-detail-card">
+                <div class="section-title">Cardiac Metrics</div>
+                <div class="detail-grid-4">
+                    <div><div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Avg HR</div><div class="data-md" style="color:var(--danger);">${hr} bpm</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Max HR</div><div class="data-md" style="color:var(--danger);">${hrMax} bpm</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Suffer Score</div><div class="data-md">${data.suffer_score||'—'}</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Date</div><div class="data-md">${date}</div></div>
+                </div>
+            </div>`;
+        } else {
+            // No Strava HR — placeholder that will be filled by watch fallback fetch
+            html += `<div class="modal-detail-card" id="cardiacMetricsCard">
+                <div class="section-title">Cardiac Metrics</div>
+                <div class="detail-grid-4">
+                    <div>
+                        <div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Avg HR</div>
+                        <div class="data-md" style="color:var(--danger);" id="modalAvgHR">
+                            <span style="color:var(--text-secondary);font-size:0.8rem;">fetching…</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="label-caps" style="font-size:0.6rem; color:var(--danger);">Max HR</div>
+                        <div class="data-md" style="color:var(--danger);" id="modalMaxHR">—</div>
+                    </div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Suffer Score</div><div class="data-md">${data.suffer_score||'—'}</div></div>
+                    <div><div class="label-caps" style="font-size:0.6rem;">Date</div><div class="data-md">${date}</div></div>
+                </div>
             </div>`;
         }
 
+
         // 2x2 chart grid placeholders
-        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        html += `<div class="section-title mt">Metric Charts</div>
+        <div class="detail-grid-2">
             <div>
-                <div class="label-caps" style="margin-bottom:8px;">Heart Rate</div>
-                <div style="height:160px;position:relative;"><canvas id="modalHRChart"></canvas></div>
+                <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Heart Rate</div>
+                <div class="modal-chart-container page-fade-in"><canvas id="modalHRChart"></canvas></div>
             </div>
             <div>
-                <div class="label-caps" style="margin-bottom:8px;">Speed</div>
-                <div style="height:160px;position:relative;"><canvas id="modalSpeedChart"></canvas></div>
+                <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Speed</div>
+                <div class="modal-chart-container page-fade-in"><canvas id="modalSpeedChart"></canvas></div>
             </div>
             <div>
-                <div class="label-caps" style="margin-bottom:8px;">Pace</div>
-                <div style="height:160px;position:relative;"><canvas id="modalPaceChart"></canvas></div>
+                <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Pace</div>
+                <div class="modal-chart-container page-fade-in"><canvas id="modalPaceChart"></canvas></div>
             </div>
             <div>
-                <div class="label-caps" style="margin-bottom:8px;">Elevation</div>
-                <div style="height:160px;position:relative;"><canvas id="modalElevChart"></canvas></div>
+                <div class="label-caps" style="margin-bottom:8px; font-size:0.6rem;">Elevation</div>
+                <div class="modal-chart-container page-fade-in"><canvas id="modalElevChart"></canvas></div>
             </div>
         </div>
-        <div class="label-caps" style="text-align:center;margin-top:8px;color:var(--text-muted);" id="streamsLoading">Loading stream data...</div>`;
+        <div class="label-caps" style="text-align:center;margin-top:12px;color:var(--text-muted);" id="streamsLoading">Loading stream data...</div>`;
+
+        body.innerHTML = html;
+        document.getElementById('runModal').classList.add('active');
 
         body.innerHTML = html;
         document.getElementById('runModal').classList.add('active');
@@ -232,20 +576,71 @@ async function showRunDetail(id) {
                 if (runMapInstance) { runMapInstance.remove(); runMapInstance = null; }
                 const mapEl = document.getElementById('runDetailMap');
                 if (!mapEl) return;
-                runMapInstance = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: true, scrollWheelZoom: false });
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(runMapInstance);
+                runMapInstance = L.map(mapEl, { zoomControl: true, attributionControl: false, dragging: true, scrollWheelZoom: false });
+                const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+                const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+                darkLayer.addTo(runMapInstance);
+                
+                const LayerSwitcher = L.Control.extend({
+                    options: { position: 'topright' },
+                    onAdd: function(map) {
+                        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                        
+                        const darkBtn = L.DomUtil.create('a', '', container);
+                        darkBtn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>';
+                        darkBtn.href = '#';
+                        darkBtn.title = 'Map View';
+                        darkBtn.style.display = 'flex';
+                        darkBtn.style.alignItems = 'center';
+                        darkBtn.style.justifyContent = 'center';
+                        
+                        const satBtn = L.DomUtil.create('a', '', container);
+                        satBtn.innerHTML = '<svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>';
+                        satBtn.href = '#';
+                        satBtn.title = 'Satellite View';
+                        satBtn.style.display = 'flex';
+                        satBtn.style.alignItems = 'center';
+                        satBtn.style.justifyContent = 'center';
+                        
+                        L.DomEvent.disableClickPropagation(container);
+                        L.DomEvent.on(darkBtn, 'click', function(e) { L.DomEvent.preventDefault(e); map.removeLayer(satelliteLayer); map.addLayer(darkLayer); });
+                        L.DomEvent.on(satBtn, 'click', function(e) { L.DomEvent.preventDefault(e); map.removeLayer(darkLayer); map.addLayer(satelliteLayer); });
+                        return container;
+                    }
+                });
+                runMapInstance.addControl(new LayerSwitcher());
                 runMapInstance.invalidateSize();
                 const coords = decodePolyline(data.map_polyline);
                 if (coords.length) {
                     const polyline = L.polyline(coords, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(runMapInstance);
                     runMapInstance.fitBounds(polyline.getBounds(), { padding: [20, 20] });
-                    // Re-calculate after browser paint to fix zoom bug
                     setTimeout(() => {
                         runMapInstance.invalidateSize();
                         runMapInstance.fitBounds(polyline.getBounds(), { padding: [20, 20] });
                     }, 100);
                 }
             }, 300);
+        }
+
+        // Fetch fallback HR if needed
+        let fallbackSeries = null;
+        if (!data.average_heartrate) {
+            try {
+                const fbRes = await fetch(`/api/activities/${id}/hr-fallback`);
+                const fb = await fbRes.json();
+                const avgEl = document.getElementById('modalAvgHR');
+                const maxEl = document.getElementById('modalMaxHR');
+                if (fb.fallback) {
+                    if (avgEl) avgEl.innerHTML = `${fb.avg_bpm} <span style="font-size:0.65rem;color:#888;font-weight:500;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);padding:1px 5px;border-radius:3px;margin-left:4px;">fallback</span>`;
+                    if (maxEl) maxEl.textContent = fb.max_bpm + ' bpm';
+                    fallbackSeries = fb.series;
+                } else {
+                    if (avgEl) avgEl.innerHTML = '<span style="color:var(--text-secondary);">—</span>';
+                }
+            } catch (e) {
+                const avgEl = document.getElementById('modalAvgHR');
+                if (avgEl) avgEl.innerHTML = '<span style="color:var(--text-secondary);">—</span>';
+            }
         }
 
         // Fetch and render streams
@@ -263,6 +658,7 @@ async function showRunDetail(id) {
             const sampled = (arr) => arr.filter((_, i) => i % sampleRate === 0);
             const sLabels = sampled(distLabels);
 
+            const tc = getThemeColors();
             const chartOpts = {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -270,9 +666,9 @@ async function showRunDetail(id) {
                 elements: { point: { radius: 0 }, line: { borderWidth: 1.5 } },
                 scales: {
                     x: { display: false },
-                    y: { ticks: { color: '#888', font: { size: 10, family: "'Geist',sans-serif" } }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } }
+                    y: { ticks: { color: '#888', font: { size: 10, family: "'Geist',sans-serif" } }, grid: { color: tc.gridLine }, border: { display: false } }
                 },
-                plugins: { legend: { display: false }, tooltip: { enabled: true, mode: 'index', intersect: false, backgroundColor: '#1a1a1a', titleColor: '#bfff00', bodyColor: '#ccc', borderColor: '#333', borderWidth: 1 } }
+                plugins: { legend: { display: false }, tooltip: { enabled: true, mode: 'index', intersect: false, backgroundColor: tc.tooltipBg, titleColor: tc.tooltipTitle === '#FFFFFF' ? '#bfff00' : tc.tooltipTitle, bodyColor: tc.tooltipBody, borderColor: tc.tooltipBorder, borderWidth: 1 } }
             };
 
             // Heart Rate chart
@@ -280,6 +676,15 @@ async function showRunDetail(id) {
                 modalCharts.hr = new Chart(document.getElementById('modalHRChart'), {
                     type: 'line',
                     data: { labels: sLabels, datasets: [{ data: sampled(streams.heartrate), borderColor: '#ff4444', backgroundColor: 'rgba(255,68,68,0.1)', fill: true, tension: 0.3 }] },
+                    options: { ...chartOpts, scales: { ...chartOpts.scales, y: { ...chartOpts.scales.y, title: { display: true, text: 'bpm', color: '#888', font: { size: 10 } } } } }
+                });
+            } else if (fallbackSeries && fallbackSeries.length) {
+                const fbSampleRate = Math.max(1, Math.floor(fallbackSeries.length / 150));
+                const fbSampled = fallbackSeries.filter((_, i) => i % fbSampleRate === 0);
+                const fbLabels = fbSampled.map(() => ''); 
+                modalCharts.hr = new Chart(document.getElementById('modalHRChart'), {
+                    type: 'line',
+                    data: { labels: fbLabels, datasets: [{ data: fbSampled, borderColor: '#ff4444', backgroundColor: 'rgba(255,68,68,0.1)', fill: true, tension: 0.3 }] },
                     options: { ...chartOpts, scales: { ...chartOpts.scales, y: { ...chartOpts.scales.y, title: { display: true, text: 'bpm', color: '#888', font: { size: 10 } } } } }
                 });
             }

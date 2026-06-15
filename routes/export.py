@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, Response
 import csv
 import io
 import json
-from models.db import get_activities, get_lifting_details, get_weekly_stats, get_overview_stats
+from models.db import get_activities, get_lifting_details, get_weekly_stats, get_overview_stats, get_nutrition_entries
 
 export_bp = Blueprint("export", __name__)
 
@@ -29,85 +29,101 @@ def export_json():
     return response
 
 
-@export_bp.route("/api/export/csv")
-def export_csv():
-    """Export activities as CSV."""
+@export_bp.route("/api/export/activities/csv")
+def export_activities_csv():
+    """Export standard activities as CSV."""
     activities = _get_filtered_activities()
-    include_lifting = request.args.get("include_lifting", "false") == "true"
-
     output = io.StringIO()
     writer = csv.writer(output)
-
-    if include_lifting:
-        # Detailed export with lifting data
+    writer.writerow([
+        "Date", "Name", "Type", "Distance (km)", "Duration (min)",
+        "Avg Speed (km/h)", "Avg HR", "Max HR", "Elevation (m)",
+        "Calories", "Source"
+    ])
+    for a in activities:
         writer.writerow([
-            "Date", "Name", "Type", "Distance (m)", "Duration (min)",
-            "Avg Speed (m/s)", "Avg HR", "Max HR", "Elevation (m)",
-            "Calories", "Source", "Exercise", "Set", "Reps",
-            "Weight", "Weight Unit", "Warmup", "Muscle Group"
+            a.get("start_date_local", "")[:10],
+            a.get("name", ""),
+            a.get("activity_type", ""),
+            round(a.get("distance", 0) / 1000, 2),
+            round(a.get("moving_time", 0) / 60, 1),
+            round(a.get("average_speed", 0) * 3.6, 2),
+            a.get("average_heartrate", 0) or "",
+            a.get("max_heartrate", 0) or "",
+            round(a.get("total_elevation_gain", 0), 1),
+            round(a.get("calories", 0), 1),
+            a.get("source", ""),
         ])
-
-        for a in activities:
-            base_row = [
-                a.get("start_date_local", "")[:10],
-                a.get("name", ""),
-                a.get("activity_type", ""),
-                round(a.get("distance", 0), 1),
-                round(a.get("moving_time", 0) / 60, 1),
-                round(a.get("average_speed", 0), 2),
-                a.get("average_heartrate", 0),
-                a.get("max_heartrate", 0),
-                round(a.get("total_elevation_gain", 0), 1),
-                round(a.get("calories", 0), 1),
-                a.get("source", ""),
-            ]
-
-            if a.get("is_hevy"):
-                details = get_lifting_details(a["id"])
-                if details:
-                    for d in details:
-                        writer.writerow(base_row + [
-                            d.get("exercise_name", ""),
-                            d.get("set_number", ""),
-                            d.get("reps", ""),
-                            d.get("weight", ""),
-                            d.get("weight_unit", "kg"),
-                            "Yes" if d.get("is_warmup") else "No",
-                            d.get("muscle_group", ""),
-                        ])
-                else:
-                    writer.writerow(base_row + ["", "", "", "", "", "", ""])
-            else:
-                writer.writerow(base_row + ["", "", "", "", "", "", ""])
-    else:
-        # Standard export
-        writer.writerow([
-            "Date", "Name", "Type", "Distance (m)", "Duration (min)",
-            "Avg Speed (m/s)", "Avg HR", "Max HR", "Elevation (m)",
-            "Calories", "Source"
-        ])
-
-        for a in activities:
-            writer.writerow([
-                a.get("start_date_local", "")[:10],
-                a.get("name", ""),
-                a.get("activity_type", ""),
-                round(a.get("distance", 0), 1),
-                round(a.get("moving_time", 0) / 60, 1),
-                round(a.get("average_speed", 0), 2),
-                a.get("average_heartrate", 0),
-                a.get("max_heartrate", 0),
-                round(a.get("total_elevation_gain", 0), 1),
-                round(a.get("calories", 0), 1),
-                a.get("source", ""),
-            ])
-
-    response = Response(
+    return Response(
         output.getvalue(),
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment;filename=healthterminal_export.csv"},
+        headers={"Content-Disposition": "attachment;filename=healthterminal_activities.csv"},
     )
-    return response
+
+
+@export_bp.route("/api/export/lifting/csv")
+def export_lifting_csv():
+    """Export lifting details as CSV."""
+    activities = _get_filtered_activities()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Date", "Session Name", "Exercise", "Set", "Reps",
+        "Weight", "Weight Unit", "Warmup", "Muscle Group"
+    ])
+    for a in activities:
+        if a.get("is_hevy"):
+            details = get_lifting_details(a["id"])
+            date_str = a.get("start_date_local", "")[:10]
+            name_str = a.get("name", "")
+            if details:
+                for d in details:
+                    writer.writerow([
+                        date_str,
+                        name_str,
+                        d.get("exercise_name", ""),
+                        d.get("set_number", ""),
+                        d.get("reps", ""),
+                        d.get("weight", ""),
+                        d.get("weight_unit", "kg"),
+                        "Yes" if d.get("is_warmup") else "No",
+                        d.get("muscle_group", ""),
+                    ])
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=healthterminal_lifting.csv"},
+    )
+
+
+@export_bp.route("/api/export/nutrition/csv")
+def export_nutrition_csv():
+    """Export nutrition data as CSV."""
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    entries = get_nutrition_entries(start_date, end_date)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Date", "Time", "Name", "Calories (kcal)", "Protein (g)", 
+        "Carbs (g)", "Fat (g)", "Tag"
+    ])
+    for e in entries:
+        writer.writerow([
+            e.get("log_date", ""),
+            e.get("log_time", ""),
+            e.get("name", ""),
+            e.get("calories", 0) or 0,
+            e.get("protein", 0) or 0,
+            e.get("carbs", 0) or 0,
+            e.get("fat", 0) or 0,
+            e.get("tag", ""),
+        ])
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=healthterminal_nutrition.csv"},
+    )
 
 
 @export_bp.route("/api/export/summary")

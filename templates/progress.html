@@ -2,77 +2,355 @@
 {% block title_suffix %} — Progress{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2>Progress Tracking</h2>
-    <p>Weekly and monthly performance trends</p>
-</div>
+<style>
+    .progress-container {
+    }
 
-<!-- Period Tabs -->
-<div class="tab-group mb-24">
-    <button class="tab-btn active" onclick="loadProgress('week', this)">This Week</button>
-    <button class="tab-btn" onclick="loadProgress('month', this)">This Month</button>
-    <button class="tab-btn" onclick="loadProgress('compare', this)">Compare</button>
-</div>
+    .progress-stat-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
 
-<!-- Stats Cards -->
-<div id="progressContent">
-    <div class="grid grid-3 mb-24">
-        <div class="card"><div class="card-title">Running Distance</div><div class="stat-value" id="pRunDist">—</div><div class="stat-unit" id="pRunDistUnit">km this period</div><div class="stat-change" id="pRunDistChange"></div></div>
-        <div class="card"><div class="card-title">Lifting Volume</div><div class="stat-value" id="pLiftVol">—</div><div class="stat-unit">kg this period</div><div class="stat-change" id="pLiftVolChange"></div></div>
-        <div class="card"><div class="card-title">Total Sessions</div><div class="stat-value" id="pSessions">—</div><div class="stat-unit">this period</div><div class="stat-change" id="pSessionsChange"></div></div>
+    .progress-stat-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .progress-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+
+    .progress-stat-card:nth-child(1):hover {
+        border-color: #00D2FF;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 210, 255, 0.15) inset;
+    }
+
+    .progress-stat-card:nth-child(2):hover {
+        border-color: #A855F7;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(168, 85, 247, 0.15) inset;
+    }
+
+    .progress-stat-card:nth-child(3):hover {
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px var(--accent-dim) inset;
+    }
+
+    .progress-card-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+    }
+
+    .progress-stat-card:nth-child(1) .progress-card-icon-wrap {
+        color: #00D2FF;
+        background: rgba(0, 210, 255, 0.08);
+        border-color: rgba(0, 210, 255, 0.1);
+    }
+
+    .progress-stat-card:nth-child(2) .progress-card-icon-wrap {
+        color: #A855F7;
+        background: rgba(168, 85, 247, 0.08);
+        border-color: rgba(168, 85, 247, 0.1);
+    }
+
+    .progress-stat-card:nth-child(3) .progress-card-icon-wrap {
+        color: var(--accent);
+        background: var(--accent-dim);
+        border-color: rgba(191, 255, 0, 0.1);
+    }
+
+    .progress-card-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .muscle-heatmap-card {
+        background: var(--bg-l1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        height: 100%;
+    }
+
+    .muscle-heatmap-card:hover {
+        border-color: var(--border-hover);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .period-btn-group {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg-l1);
+        overflow: hidden;
+    }
+    .period-btn-group button {
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 6px 14px !important;
+        transition: background 0.2s, color 0.2s;
+    }
+    .period-btn-group button:not(:last-child) {
+        border-right: 1px solid var(--border) !important;
+    }
+    .period-btn-group button.active {
+        background: var(--bg-l2);
+        color: var(--text);
+        font-weight: 600;
+    }
+
+    /* Comparison specific styles */
+    .comp-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .comp-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .comp-bar-label {
+        width: 32px;
+        font-size: 0.625rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+    .comp-bar-track {
+        flex: 1;
+        height: 6px;
+        background: var(--bg-l2);
+        border-radius: 3px;
+        position: relative;
+        overflow: hidden;
+    }
+    .comp-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+    .comp-bar-fill.previous {
+        background: rgba(255, 255, 255, 0.15);
+    }
+    .comp-bar-value {
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        width: 75px;
+        text-align: right;
+        white-space: nowrap;
+    }
+    .comp-bar-value.current { color: var(--text); }
+    .comp-bar-value.previous { color: var(--text-muted); font-weight: 400; }
+    
+    .diff-badge {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    .diff-badge.pos { background: rgba(191,255,0,0.1); color: var(--accent); }
+    .diff-badge.neg { background: rgba(255,68,68,0.1); color: #FF4444; }
+    .diff-badge.neu { background: var(--bg-l2); color: var(--text-muted); }
+
+    /* PRs styles */
+    .pr-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .pr-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg-l2);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        transition: border-color 0.2s;
+    }
+    .pr-item:hover {
+        border-color: var(--border-hover);
+    }
+    .pr-item-name {
+        font-size: 0.8125rem;
+        font-weight: 500;
+    }
+    .pr-item-weight {
+        font-family: var(--font-mono);
+        color: var(--accent);
+        font-weight: 700;
+        font-size: 0.8125rem;
+    }
+    
+    .streak-badge {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        background: rgba(255, 159, 0, 0.1);
+        color: #FF9F00;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 159, 0, 0.2);
+    }
+
+</style>
+
+<div class="progress-container page-fade-in">
+    <div class="page-header mb-24 flex justify-between items-center flex-wrap gap-12">
+        <div>
+            <h2>Progress Overview</h2>
+            <p id="progressSubtitle">Weekly performance trends and comparisons</p>
+        </div>
+        <div class="flex gap-12 items-center">
+            <div class="period-btn-group">
+                <button class="btn btn-ghost btn-sm active" id="btnWeek" onclick="setPeriod('week')">Week</button>
+                <button class="btn btn-ghost btn-sm" id="btnMonth" onclick="setPeriod('month')">Month</button>
+            </div>
+        </div>
     </div>
 
-    <div class="grid grid-2 mb-24">
-        <div class="card">
-            <div class="card-header"><div class="card-title">Weekly Trend (Distance)</div></div>
-            <div class="chart-wrap"><canvas id="weeklyTrendChart"></canvas></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><div class="card-title">Weekly Trend (Volume)</div></div>
-            <div class="chart-wrap"><canvas id="volumeTrendChart"></canvas></div>
-        </div>
-    </div>
+    <div id="progressContent">
+        <!-- Main Stats -->
+        <div class="grid grid-3 mb-24">
+            <!-- Running Distance -->
+            <div class="progress-stat-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Running Distance</span>
+                    <div class="progress-card-icon-wrap">
+                        <svg class="progress-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <circle cx="13" cy="5" r="2" />
+                            <path d="M4 17l5 1 .75-1.5M15 21v-4l-4-3 1-6M7 12V9l5-1 3 3 3 1" />
+                        </svg>
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-value" id="pRunDist">—</div>
+                    <div class="stat-unit" id="pRunDistUnit" style="margin-bottom:8px;">km this week</div>
+                    <div class="stat-change" id="pRunDistChange"></div>
+                </div>
+            </div>
 
-    <!-- Comparison Cards -->
-    <div id="compareSection" class="hidden">
-        <h3 class="mb-16">This Week vs Last Week</h3>
+            <!-- Lifting Volume -->
+            <div class="progress-stat-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Lifting Volume</span>
+                    <div class="progress-card-icon-wrap">
+                        <svg class="progress-card-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />
+                            <path d="m2.5 21.5 1.4-1.4M20.1 3.9l1.4-1.4" />
+                            <path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" />
+                            <path d="m9.6 14.4 4.8-4.8" />
+                        </svg>
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-value" id="pLiftVol">—</div>
+                    <div class="stat-unit" id="pLiftVolUnit" style="margin-bottom:8px;">kg this week</div>
+                    <div class="stat-change" id="pLiftVolChange"></div>
+                </div>
+            </div>
+
+            <!-- Total Sessions -->
+            <div class="progress-stat-card">
+                <div class="flex justify-between items-center">
+                    <span class="label-caps">Total Sessions</span>
+                    <div class="progress-card-icon-wrap">
+                        <svg class="progress-card-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-value" id="pSessions">—</div>
+                    <div class="stat-unit" id="pSessionsUnit" style="margin-bottom:8px;">this week</div>
+                    <div class="stat-change" id="pSessionsChange"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Cards -->
         <div class="grid grid-2 mb-24">
-            <div class="card">
-                <div class="card-title">This Week</div>
-                <div class="grid grid-2 mt-16">
-                    <div><div class="label-caps">Distance</div><div class="data-md" id="cThisDist">—</div></div>
-                    <div><div class="label-caps">Sessions</div><div class="data-md" id="cThisSess">—</div></div>
-                    <div><div class="label-caps">Calories</div><div class="data-md" id="cThisCal">—</div></div>
-                    <div><div class="label-caps">Volume</div><div class="data-md" id="cThisVol">—</div></div>
+            <div class="chart-card">
+                <div class="card-header">
+                    <div class="card-title" id="runCompareTitle">Running (This vs Last Week)</div>
+                    <div id="runStreakBadge" class="streak-badge" style="display:none;"></div>
                 </div>
+                <div id="runCompareContent"></div>
             </div>
-            <div class="card">
-                <div class="card-title">Last Week</div>
-                <div class="grid grid-2 mt-16">
-                    <div><div class="label-caps">Distance</div><div class="data-md" id="cLastDist">—</div></div>
-                    <div><div class="label-caps">Sessions</div><div class="data-md" id="cLastSess">—</div></div>
-                    <div><div class="label-caps">Calories</div><div class="data-md" id="cLastCal">—</div></div>
-                    <div><div class="label-caps">Volume</div><div class="data-md" id="cLastVol">—</div></div>
+            <div class="chart-card">
+                <div class="card-header">
+                    <div class="card-title" id="liftCompareTitle">Lifting (This vs Last Week)</div>
+                    <div id="liftStreakBadge" class="streak-badge" style="display:none;"></div>
                 </div>
+                <div id="liftCompareContent"></div>
             </div>
         </div>
-    </div>
 
-    <!-- Muscle Heatmap -->
-    <div class="card mb-24">
-        <div class="card-header">
-            <div class="card-title">Muscle Group Heatmap (7 days)</div>
+        <!-- Trend Charts -->
+        <div class="grid grid-2 mb-24">
+            <div class="chart-card">
+                <div class="card-header"><div class="card-title" id="trendDistTitle">Weekly Trend (Distance)</div></div>
+                <div class="chart-wrap"><canvas id="weeklyTrendChart"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="card-header"><div class="card-title" id="trendVolTitle">Weekly Trend (Volume)</div></div>
+                <div class="chart-wrap"><canvas id="volumeTrendChart"></canvas></div>
+            </div>
         </div>
-        <div class="muscle-grid" id="muscleHeatmap"></div>
-    </div>
 
-    <!-- Goals Progress -->
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Goals Progress</div>
-            <button class="btn btn-ghost btn-sm" onclick="window.location.href='/?add_goal=true'">+ Add Goal</button>
+        <!-- Heatmap (Full width) -->
+        <div class="mb-24">
+            <div class="muscle-heatmap-card">
+                <div class="card-header">
+                    <div class="card-title">Muscle Group Heatmap (7 days)</div>
+                </div>
+                <div class="muscle-grid" id="muscleHeatmap"></div>
+            </div>
         </div>
-        <div id="progressGoals"></div>
+
+        <!-- Personal Records (Full Width) -->
+        <div class="mb-24">
+            <div class="chart-card">
+                <div class="card-header"><div class="card-title">Personal Records (Lifting)</div></div>
+                <div id="prContent"></div>
+            </div>
+        </div>
+
+        <!-- Goals (Full width) -->
+        <div class="mb-24">
+            <div class="chart-card">
+                <div class="card-header">
+                    <div class="card-title">Goals Progress</div>
+                    <button class="btn btn-ghost btn-sm" onclick="window.location.href='/?add_goal=true'">+ Add Goal</button>
+                </div>
+                <div id="progressGoals"></div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -81,85 +359,196 @@
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 <script>
 const ALL_MUSCLES = ['Chest','Back','Shoulders','Biceps','Triceps','Quadriceps','Hamstrings','Glutes','Calves','Core','Forearms','Traps','Lats'];
+let currentPeriod = 'week';
 
-document.addEventListener('DOMContentLoaded', () => loadProgress('week'));
+document.addEventListener('DOMContentLoaded', () => loadProgress());
 
-async function loadProgress(period, btn) {
-    if (btn) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-    }
-    document.getElementById('compareSection').classList.toggle('hidden', period !== 'compare');
+async function setPeriod(period) {
+    currentPeriod = period;
+    document.getElementById('btnWeek').classList.toggle('active', period === 'week');
+    document.getElementById('btnMonth').classList.toggle('active', period === 'month');
+    await loadProgress();
+}
 
+// Helper to get the Monday of a given date string 'YYYY-MM-DD'
+function getMonday(dateStr) {
+    const d = new Date(dateStr);
+    const day = d.getDay() || 7; 
+    d.setDate(d.getDate() - (day - 1));
+    return d.toLocaleDateString('en-CA');
+}
+
+async function loadProgress() {
     try {
-        if (period === 'month') {
-            const res = await fetch('/api/stats/monthly?months_back=0');
-            const stats = await res.json();
-            const prevRes = await fetch('/api/stats/monthly?months_back=1');
-            const prevStats = await prevRes.json();
+        const isWeek = currentPeriod === 'week';
+        const promises = [];
+        const endpoint = isWeek ? '/api/stats/weekly?weeks_back=' : '/api/stats/monthly?months_back=';
 
-            const runDist = (stats.running?.total_distance || 0) / 1000;
-            const sessions = stats.total_activities || 0;
-            const liftVol = stats.total_volume || 0;
+        for (let i = 0; i < 8; i++) {
+            promises.push(fetch(`${endpoint}${i}`).then(r=>r.json()));
+        }
+        const dataList = await Promise.all(promises);
 
-            animateDecimal(document.getElementById('pRunDist'), runDist);
-            animateValue(document.getElementById('pLiftVol'), Math.round(liftVol));
-            animateValue(document.getElementById('pSessions'), sessions);
-            document.getElementById('pRunDistUnit').textContent = 'km this month';
+        const thisPeriod = dataList[0];
+        const lastPeriod = dataList[1] || {};
+        
+        const runDist = (thisPeriod.running?.total_distance || 0) / 1000;
+        const runSess = (thisPeriod.running?.count || 0) + (thisPeriod.lifting?.count || 0);
+        const liftVol = thisPeriod.total_volume || 0;
 
-            showChange('pRunDistChange', runDist, (prevStats.running?.total_distance || 0) / 1000);
-            showChange('pLiftVolChange', liftVol, prevStats.total_volume || 0);
-            showChange('pSessionsChange', sessions, prevStats.total_activities || 0);
-        } else {
-            // Weekly + trends
-            const weekPromises = [];
-            for (let i = 0; i < 8; i++) weekPromises.push(fetch(`/api/stats/weekly?weeks_back=${i}`).then(r=>r.json()));
-            const weeks = await Promise.all(weekPromises);
+        animateDecimal(document.getElementById('pRunDist'), runDist);
+        animateValue(document.getElementById('pLiftVol'), Math.round(liftVol));
+        animateValue(document.getElementById('pSessions'), runSess);
 
-            const current = weeks[0];
-            const prev = weeks[1] || {};
-            const runDist = (current.running?.total_distance || 0) / 1000;
-            const runSess = (current.running?.count || 0) + (current.lifting?.count || 0);
-            const liftVol = current.total_volume || 0;
+        document.getElementById('pRunDistUnit').textContent = isWeek ? 'km this week' : 'km this month';
+        document.getElementById('pLiftVolUnit').textContent = isWeek ? 'kg this week' : 'kg this month';
+        document.getElementById('pSessionsUnit').textContent = isWeek ? 'this week' : 'this month';
+        document.getElementById('progressSubtitle').textContent = isWeek ? 'Weekly performance trends and comparisons' : 'Monthly performance trends and comparisons';
 
-            animateDecimal(document.getElementById('pRunDist'), runDist);
-            animateValue(document.getElementById('pLiftVol'), Math.round(liftVol));
-            animateValue(document.getElementById('pSessions'), runSess);
-            document.getElementById('pRunDistUnit').textContent = 'km this week';
+        const prevDist = (lastPeriod.running?.total_distance || 0) / 1000;
+        const prevSess = (lastPeriod.running?.count || 0) + (lastPeriod.lifting?.count || 0);
+        const prevVol = lastPeriod.total_volume || 0;
+        showChange('pRunDistChange', runDist, prevDist);
+        showChange('pLiftVolChange', liftVol, prevVol);
+        showChange('pSessionsChange', runSess, prevSess);
 
-            const prevDist = (prev.running?.total_distance || 0) / 1000;
-            const prevSess = (prev.running?.count || 0) + (prev.lifting?.count || 0);
-            const prevVol = prev.total_volume || 0;
-            showChange('pRunDistChange', runDist, prevDist);
-            showChange('pLiftVolChange', liftVol, prevVol);
-            showChange('pSessionsChange', runSess, prevSess);
+        // Map month_name to week_start so charts.js correctly renders labels without modifying it
+        const chartDataList = dataList.map(item => ({
+            ...item,
+            week_start: isWeek ? item.week_start : `0000-${item.month_name}`
+        }));
+        renderWeeklyTrends([...chartDataList].reverse());
 
-            renderWeeklyTrends(weeks.reverse());
+        document.getElementById('trendDistTitle').textContent = isWeek ? 'Weekly Trend (Distance)' : 'Monthly Trend (Distance)';
+        document.getElementById('trendVolTitle').textContent = isWeek ? 'Weekly Trend (Volume)' : 'Monthly Trend (Volume)';
+        document.getElementById('runCompareTitle').textContent = isWeek ? 'Running (This vs Last Week)' : 'Running (This vs Last Month)';
+        document.getElementById('liftCompareTitle').textContent = isWeek ? 'Lifting (This vs Last Week)' : 'Lifting (This vs Last Month)';
 
-            // Compare
-            if (period === 'compare' && weeks.length >= 2) {
-                const thisW = weeks[weeks.length-1], lastW = weeks[weeks.length-2];
-                document.getElementById('cThisDist').textContent = ((thisW.running?.total_distance||0)/1000).toFixed(1)+'km';
-                document.getElementById('cThisSess').textContent = (thisW.running?.count||0)+(thisW.lifting?.count||0);
-                document.getElementById('cThisCal').textContent = Math.round((thisW.running?.total_calories||0)+(thisW.lifting?.total_calories||0));
-                document.getElementById('cThisVol').textContent = Math.round(thisW.total_volume||0).toLocaleString()+'kg';
-                document.getElementById('cLastDist').textContent = ((lastW.running?.total_distance||0)/1000).toFixed(1)+'km';
-                document.getElementById('cLastSess').textContent = (lastW.running?.count||0)+(lastW.lifting?.count||0);
-                document.getElementById('cLastCal').textContent = Math.round((lastW.running?.total_calories||0)+(lastW.lifting?.total_calories||0));
-                document.getElementById('cLastVol').textContent = Math.round(lastW.total_volume||0).toLocaleString()+'kg';
+        // Comparison Logic
+        const runMetrics = [
+            {
+                label: 'Distance',
+                valThis: (thisPeriod.running?.total_distance||0)/1000,
+                valThisStr: ((thisPeriod.running?.total_distance||0)/1000).toFixed(1),
+                valLast: (lastPeriod.running?.total_distance||0)/1000,
+                valLastStr: ((lastPeriod.running?.total_distance||0)/1000).toFixed(1),
+                unit: ' km',
+                betterIsHigher: true
+            },
+            {
+                label: 'Sessions',
+                valThis: thisPeriod.running?.count||0,
+                valLast: lastPeriod.running?.count||0,
+                unit: '',
+                betterIsHigher: true
+            },
+            {
+                label: 'Calories Burned',
+                valThis: thisPeriod.running?.total_calories||0,
+                valThisStr: Math.round(thisPeriod.running?.total_calories||0).toLocaleString(),
+                valLast: lastPeriod.running?.total_calories||0,
+                valLastStr: Math.round(lastPeriod.running?.total_calories||0).toLocaleString(),
+                unit: ' kcal',
+                betterIsHigher: true
             }
+        ];
+        renderCompareCard('runCompareContent', runMetrics, 'var(--accent)');
+
+        const liftMetrics = [
+            {
+                label: 'Total Volume',
+                valThis: thisPeriod.total_volume||0,
+                valThisStr: Math.round(thisPeriod.total_volume||0).toLocaleString(),
+                valLast: lastPeriod.total_volume||0,
+                valLastStr: Math.round(lastPeriod.total_volume||0).toLocaleString(),
+                unit: ' kg',
+                betterIsHigher: true
+            },
+            {
+                label: 'Sessions',
+                valThis: thisPeriod.lifting?.count||0,
+                valLast: lastPeriod.lifting?.count||0,
+                unit: '',
+                betterIsHigher: true
+            },
+            {
+                label: 'Calories Burned',
+                valThis: thisPeriod.lifting?.total_calories||0,
+                valThisStr: Math.round(thisPeriod.lifting?.total_calories||0).toLocaleString(),
+                valLast: lastPeriod.lifting?.total_calories||0,
+                valLastStr: Math.round(lastPeriod.lifting?.total_calories||0).toLocaleString(),
+                unit: ' kcal',
+                betterIsHigher: true
+            }
+        ];
+        renderCompareCard('liftCompareContent', liftMetrics, 'var(--text-primary)');
+
+        // Fetch Streaks & PRs
+        const ovRes = await fetch('/api/stats/overview');
+        const ovData = await ovRes.json();
+        const prs = ovData.personal_bests || [];
+        if (prs.length > 0) {
+            document.getElementById('prContent').innerHTML = '<div class="pr-list">' + prs.slice(0, 10).map(pr => `
+                <div class="pr-item">
+                    <span class="pr-item-name">${pr.exercise_name}</span>
+                    <span class="pr-item-weight">${pr.max_weight} kg</span>
+                </div>
+            `).join('') + '</div>';
+        } else {
+            document.getElementById('prContent').innerHTML = '<div class="empty-state"><p>No PRs logged yet.</p></div>';
         }
 
-        // Muscle heatmap
-        const muscleRes = await fetch('/api/stats/muscles?days=7');
+        // Calculate specific weekly streaks
+        const actsRes = await fetch('/api/activities?limit=300');
+        const acts = await actsRes.json();
+        const todayMonday = getMonday(new Date().toLocaleDateString('en-CA'));
+        let d = new Date(todayMonday);
+        const lastMonday = new Date(d.setDate(d.getDate() - 7)).toLocaleDateString('en-CA');
+        
+        let runStreak = 0;
+        const runActs = acts.filter(a => ['Run','VirtualRun','TrailRun'].includes(a.activity_type));
+        const activeRunWeeks = new Set(runActs.map(a => getMonday(new Date(a.start_date_local).toLocaleDateString('en-CA'))));
+        let cdRun = new Date(activeRunWeeks.has(todayMonday) ? todayMonday : lastMonday);
+        while (activeRunWeeks.has(cdRun.toLocaleDateString('en-CA'))) {
+            runStreak++;
+            cdRun.setDate(cdRun.getDate() - 7);
+        }
+
+        let liftStreak = 0;
+        const liftActs = acts.filter(a => a.is_hevy);
+        const activeLiftWeeks = new Set(liftActs.map(a => getMonday(new Date(a.start_date_local).toLocaleDateString('en-CA'))));
+        let cdLift = new Date(activeLiftWeeks.has(todayMonday) ? todayMonday : lastMonday);
+        while (activeLiftWeeks.has(cdLift.toLocaleDateString('en-CA'))) {
+            liftStreak++;
+            cdLift.setDate(cdLift.getDate() - 7);
+        }
+
+        const runBadge = document.getElementById('runStreakBadge');
+        if (runStreak > 0) {
+            runBadge.style.display = 'inline-block';
+            runBadge.textContent = `${runStreak} Week Streak`;
+        } else {
+            runBadge.style.display = 'none';
+        }
+
+        const liftBadge = document.getElementById('liftStreakBadge');
+        if (liftStreak > 0) {
+            liftBadge.style.display = 'inline-block';
+            liftBadge.textContent = `${liftStreak} Week Streak`;
+        } else {
+            liftBadge.style.display = 'none';
+        }
+
+        // Heatmap
+        const muscleRes = await fetch('/api/stats/muscles?days=' + (isWeek ? '7' : '30'));
         const muscles = await muscleRes.json();
-        renderMuscleHeatmap(muscles);
+        renderMuscleHeatmap(muscles, isWeek ? '7 days' : '30 days');
 
         // Goals
         const goalsRes = await fetch('/api/goals?status=active');
         const goals = await goalsRes.json();
         const goalsEl = document.getElementById('progressGoals');
-        if (!goals.length) { goalsEl.innerHTML = '<div class="empty-state"><p>No active goals. Set goals from the Dashboard.</p></div>'; }
+        if (!goals.length) { goalsEl.innerHTML = '<div class="empty-state"><p>No active goals.</p></div>'; }
         else {
             goalsEl.innerHTML = goals.map(g => {
                 let pct = 0;
@@ -190,6 +579,60 @@ async function loadProgress(period, btn) {
     } catch(e) { console.error(e); }
 }
 
+function renderCompareCard(containerId, metrics, color) {
+    const html = metrics.map((m, idx) => {
+        const maxVal = Math.max(m.valThis, m.valLast, 0.001);
+        const pctThis = (m.valThis / maxVal) * 100;
+        const pctLast = (m.valLast / maxVal) * 100;
+        
+        let diffPct = 0;
+        if (m.valLast > 0) diffPct = Math.round(((m.valThis - m.valLast) / m.valLast) * 100);
+        else if (m.valThis > 0) diffPct = 100;
+
+        let diffClass = 'neu', diffText = '—';
+        if (diffPct !== 0) {
+            const isGood = m.betterIsHigher ? diffPct > 0 : diffPct < 0;
+            diffClass = isGood ? 'pos' : 'neg';
+            diffText = diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`;
+        }
+
+        const formatVal = (v) => m.unit ? `${v}${m.unit}` : v;
+        const mClass = idx < metrics.length - 1 ? 'mb-16' : '';
+
+        return `
+        <div class="${mClass}">
+            <div class="flex justify-between items-center mb-8">
+                <span style="font-size:0.8125rem;color:var(--text-muted);">${m.label}</span>
+                <span class="diff-badge ${diffClass}">${diffText}</span>
+            </div>
+            <div class="comp-bars">
+                <div class="comp-bar-row">
+                    <div class="comp-bar-label" style="color:${color}">THIS</div>
+                    <div class="comp-bar-track"><div class="comp-bar-fill" data-width="${pctThis}%" style="width:0%;background:${color};"></div></div>
+                    <div class="comp-bar-value current">${formatVal(m.valThisStr || m.valThis)}</div>
+                </div>
+                <div class="comp-bar-row">
+                    <div class="comp-bar-label">LAST</div>
+                    <div class="comp-bar-track"><div class="comp-bar-fill previous" data-width="${pctLast}%" style="width:0%;"></div></div>
+                    <div class="comp-bar-value previous">${formatVal(m.valLastStr || m.valLast)}</div>
+                </div>
+            </div>
+        </div>
+        `;
+    }).join('');
+    
+    document.getElementById(containerId).innerHTML = html;
+
+    setTimeout(() => {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.querySelectorAll('.comp-bar-fill').forEach(el => {
+                el.style.width = el.getAttribute('data-width');
+            });
+        }
+    }, 100);
+}
+
 function showChange(elId, current, previous) {
     const el = document.getElementById(elId);
     if (!el || previous === 0) { el.textContent = ''; return; }
@@ -199,7 +642,12 @@ function showChange(elId, current, previous) {
     else { el.textContent = '— same as last'; el.className = 'stat-change'; }
 }
 
-function renderMuscleHeatmap(muscles) {
+function renderMuscleHeatmap(muscles, daysLabel) {
+    const cardTitle = document.querySelector('.muscle-heatmap-card .card-title');
+    if (cardTitle) {
+        cardTitle.textContent = `Muscle Group Heatmap (${daysLabel})`;
+    }
+
     const el = document.getElementById('muscleHeatmap');
     const muscleMap = {};
     muscles.forEach(m => { muscleMap[m.muscle_group] = m.session_count || 0; });
@@ -220,7 +668,7 @@ async function deleteGoal(id) {
     if (!confirm('Delete this goal?')) return;
     try {
         await fetch(`/api/goals/${id}`, { method: 'DELETE' });
-        loadProgress(document.querySelector('.tab-btn.active').textContent.toLowerCase().includes('week') ? 'week' : 'month');
+        loadProgress();
     } catch(e) { console.error(e); }
 }
 </script>

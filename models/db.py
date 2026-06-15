@@ -190,6 +190,73 @@ def init_db():
             );
 
 
+            -- Health data tables (HC Webhook integration)
+            CREATE TABLE IF NOT EXISTS health_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                count INTEGER NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_sleep (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_end_time TEXT NOT NULL,
+                duration_seconds INTEGER NOT NULL,
+                stages TEXT DEFAULT '[]',
+                sleep_score REAL DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_heart_rate (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bpm INTEGER NOT NULL,
+                time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_body_temp (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                celsius REAL NOT NULL,
+                time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_vo2max (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ml_per_kg_per_min REAL NOT NULL,
+                time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_resting_heart_rate (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bpm INTEGER NOT NULL,
+                time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_hrv (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rmssd_millis REAL NOT NULL,
+                time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_oxygen_saturation (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                percentage REAL NOT NULL,
+                time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS health_respiratory_rate (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rate REAL NOT NULL,
+                time TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
             -- Default settings
             INSERT OR IGNORE INTO settings (key, value) VALUES ('body_weight', '75');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('weight_unit', 'kg');
@@ -204,6 +271,8 @@ def init_db():
             INSERT OR IGNORE INTO settings (key, value) VALUES ('openrouter_api_key', '');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('apininjas_api_key', '');
             INSERT OR IGNORE INTO settings (key, value) VALUES ('last_sync', '');
+            INSERT OR IGNORE INTO settings (key, value) VALUES ('hc_webhook_enabled', '0');
+            INSERT OR IGNORE INTO settings (key, value) VALUES ('hc_webhook_token', '');
         """)
 
 
@@ -667,6 +736,22 @@ def increment_nutrition_api_usage():
             "ON CONFLICT(usage_date) DO UPDATE SET request_count = request_count + 1",
             (today,),
         )
+
+
+def get_nutrition_entries(start_date=None, end_date=None):
+    """Get nutrition logs from daily_food_log."""
+    query = "SELECT * FROM daily_food_log WHERE 1=1"
+    params = []
+    if start_date:
+        query += " AND log_date >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND log_date <= ?"
+        params.append(end_date)
+    query += " ORDER BY log_date DESC, log_time DESC"
+    with get_db() as conn:
+        rows = conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
 
 
 def get_custom_foods():

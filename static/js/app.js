@@ -290,7 +290,8 @@ function generateShareImage(data) {
     ctx.fillStyle = dimGrey;
     ctx.font = '500 16px Geist, system-ui, sans-serif';
     ctx.letterSpacing = '2px';
-    ctx.fillText('PERFORMANCE SUMMARY', cx, y);
+    const titleText = (data.customTitle || 'PERFORMANCE SUMMARY').toUpperCase();
+    ctx.fillText(titleText, cx, y);
     ctx.letterSpacing = '0px';
 
     // — Divider helper —

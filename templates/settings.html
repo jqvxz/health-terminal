@@ -2,250 +2,385 @@
 {% block title_suffix %} — Settings{% endblock %}
 
 {% block content %}
+<style>
+    .period-btn-group {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg-l1);
+        overflow: hidden;
+        width: 100%;
+    }
+    .period-btn-group button {
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 6px 10px !important;
+        transition: background 0.2s, color 0.2s;
+        flex: 1;
+        font-size: 0.7rem !important;
+    }
+    .period-btn-group button:not(:last-child) {
+        border-right: 1px solid var(--border) !important;
+    }
+    .period-btn-group button.active {
+        background: var(--bg-l2);
+        color: var(--text);
+        font-weight: 600;
+    }
+    .settings-side-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        align-items: stretch;
+        margin-bottom: 24px;
+    }
+    @media (max-width: 900px) {
+        .settings-side-grid { grid-template-columns: 1fr; }
+    }
+    /* Ensure inputs and selects in User Data share the same border style */
+    #bodyWeight, #userHeight, #userAge, #userSex, #weightUnit, #distUnit {
+        border-color: var(--border) !important;
+    }
+    #bodyWeight:focus, #userHeight:focus, #userAge:focus,
+    #userSex:focus, #weightUnit:focus, #distUnit:focus {
+        border-color: var(--accent) !important;
+        outline: none;
+    }
+</style>
+
 <div class="page-header">
     <h2>Settings</h2>
     <p>Configure your HealthTerminal experience</p>
 </div>
 
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">Strava Connection</div>
-    </div>
-    <div class="flex justify-between items-center">
-        <div>
+<!-- ─── Row 1: Strava + OpenRouter ─── -->
+<div class="settings-side-grid">
+
+    <!-- Strava -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Strava Connection</div>
             {% if settings.get('strava_connected') == '1' %}
-            <div class="flex items-center gap-8">
-                <span class="status-dot online"></span>
-                <div>
-                    <div style="font-weight:600;">Connected</div>
-                    <div class="label-caps">{{ settings.get('strava_athlete_name', 'Athlete') }}</div>
-                </div>
-            </div>
+            <a href="/auth/strava/disconnect" class="btn btn-secondary btn-sm">Disconnect</a>
             {% else %}
-            <div class="flex items-center gap-8">
-                <span class="status-dot offline"></span>
-                <div>
-                    <div style="font-weight:500;">Not Connected</div>
-                    <div class="label-caps">Connect to sync your activities</div>
-                </div>
-            </div>
+            <a href="/auth/strava" class="btn btn-accent btn-sm">Connect Strava</a>
             {% endif %}
         </div>
         {% if settings.get('strava_connected') == '1' %}
-        <a href="/auth/strava/disconnect" class="btn btn-secondary btn-sm">Disconnect</a>
+        <div class="flex items-center gap-8">
+            <span class="status-dot online"></span>
+            <div>
+                <div style="font-weight:600;">Connected</div>
+                <div class="label-caps">{{ settings.get('strava_athlete_name', 'Athlete') }}</div>
+            </div>
+        </div>
         {% else %}
-        <a href="/auth/strava" class="btn btn-accent btn-sm">Connect Strava</a>
+        <div class="flex items-center gap-8">
+            <span class="status-dot offline"></span>
+            <div>
+                <div style="font-weight:500;">Not Connected</div>
+                <div class="label-caps">Connect to sync your activities</div>
+            </div>
+        </div>
         {% endif %}
     </div>
+
+    <!-- OpenRouter API -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">OpenRouter API (AI)</div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label">API Key</label>
+            <input type="password" class="form-input" id="apiKeyInput"
+                value="{{ settings.get('openrouter_api_key', '') }}" placeholder="sk-or-v1-...">
+        </div>
+        <div class="flex gap-8 items-center">
+            <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Save Key</button>
+            <button class="btn btn-secondary btn-sm" onclick="validateKey()">Test Connection</button>
+            <span id="apiStatus" class="label-caps"></span>
+        </div>
+
+    </div>
 </div>
 
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">OpenRouter API (AI)</div>
-    </div>
-    <div class="form-group">
-        <label class="form-label">API Key</label>
-        <input type="password" class="form-input" id="apiKeyInput" value="{{ settings.get('openrouter_api_key', '') }}"
-            placeholder="sk-or-v1-...">
-    </div>
-    <div class="flex gap-8 items-center">
-        <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Save Key</button>
-        <button class="btn btn-secondary btn-sm" onclick="validateKey()">Test Connection</button>
-        <span id="apiStatus" class="label-caps"></span>
-    </div>
-    <div class="label-caps mt-16">Model: Nemotron Super (Free) · 50 requests/day</div>
-</div>
+<!-- ─── Row 2: User Data + Appearance ─── -->
+<div class="settings-side-grid">
 
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">API Ninjas API (Nutrition)</div>
-    </div>
-    <div class="form-group">
-        <label class="form-label">API Key</label>
-        <input type="password" class="form-input" id="ninjaApiKeyInput"
-            value="{{ settings.get('apininjas_api_key', '') }}" placeholder="api-ninjas-key-...">
-    </div>
-    <div class="flex gap-8 items-center">
-        <button class="btn btn-primary btn-sm" onclick="saveNinjaApiKey()">Save Key</button>
-    </div>
-    <div class="label-caps mt-16">Used for generic ingredient macro parsing · 800 free requests/day</div>
-</div>
-
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">User Data</div>
-    </div>
-    <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;">
-        <div class="form-group" style="margin:0; flex:1; min-width:140px;">
-            <label class="form-label">Weight</label>
-            <div class="flex" style="justify-content: space-between; align-items: flex-end; width: 100%;">
-                <input type="number" class="form-input" id="bodyWeight" value="{{ settings.get('body_weight', '75') }}"
-                    style="flex: 1; min-width: 0; margin-right: 4px;">
-                <select class="form-input" id="weightUnit"
-                    style="width:65px; padding-left:4px; padding-right:4px; flex: none;">
-                    <option value="kg" {{ 'selected' if settings.get('weight_unit','kg')=='kg' }}>kg</option>
-                    <option value="lbs" {{ 'selected' if settings.get('weight_unit','kg')=='lbs' }}>lbs</option>
+    <!-- User Data -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">User Data</div>
+            <button class="btn btn-primary btn-sm" onclick="savePrefs()">Save</button>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; --form-border: var(--border);">
+            <div class="form-group" style="margin:0; flex:1; min-width:130px;">
+                <label class="form-label">Weight</label>
+                <div class="flex" style="gap:4px;">
+                    <input type="number" class="form-input" id="bodyWeight"
+                        value="{{ settings.get('body_weight', '75') }}" style="flex:1; min-width:0;">
+                    <select class="form-input" id="weightUnit" style="width:62px; padding-left:4px; padding-right:4px; flex:none;">
+                        <option value="kg" {{ 'selected' if settings.get('weight_unit','kg')=='kg' }}>kg</option>
+                        <option value="lbs" {{ 'selected' if settings.get('weight_unit','kg')=='lbs' }}>lbs</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:90px;">
+                <label class="form-label">Height (cm)</label>
+                <input type="number" class="form-input" id="userHeight"
+                    value="{{ settings.get('user_height', '') }}" placeholder="180">
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:70px;">
+                <label class="form-label">Age</label>
+                <input type="number" class="form-input" id="userAge"
+                    value="{{ settings.get('user_age', '') }}" placeholder="25" min="10" max="120">
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:90px;">
+                <label class="form-label">Sex</label>
+                <select class="form-input" id="userSex">
+                    <option value="" {{ 'selected' if not settings.get('user_sex') }}>-</option>
+                    <option value="male" {{ 'selected' if settings.get('user_sex')=='male' }}>Male</option>
+                    <option value="female" {{ 'selected' if settings.get('user_sex')=='female' }}>Female</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:110px;">
+                <label class="form-label">Distance</label>
+                <select class="form-input" id="distUnit">
+                    <option value="km" {{ 'selected' if settings.get('distance_unit','km')=='km' }}>Kilometers</option>
+                    <option value="mi" {{ 'selected' if settings.get('distance_unit','km')=='mi' }}>Miles</option>
                 </select>
             </div>
         </div>
-
-        <div class="form-group" style="margin:0; flex:1; min-width:100px;">
-            <label class="form-label">Height (cm)</label>
-            <input type="number" class="form-input" id="userHeight" value="{{ settings.get('user_height', '') }}"
-                placeholder="180">
-        </div>
-
-        <div class="form-group" style="margin:0; flex:1; min-width:80px;">
-            <label class="form-label">Age</label>
-            <input type="number" class="form-input" id="userAge" value="{{ settings.get('user_age', '') }}"
-                placeholder="25" min="10" max="120">
-        </div>
-
-        <div class="form-group" style="margin:0; flex:1; min-width:120px;">
-            <label class="form-label">Sex</label>
-            <select class="form-input" id="userSex">
-                <option value="" {{ 'selected' if not settings.get('user_sex') }}>-</option>
-                <option value="male" {{ 'selected' if settings.get('user_sex')=='male' }}>Male</option>
-                <option value="female" {{ 'selected' if settings.get('user_sex')=='female' }}>Female</option>
-            </select>
-        </div>
-
-        <div class="form-group" style="margin:0; flex:1; min-width:130px;">
-            <label class="form-label">Distance</label>
-            <select class="form-input" id="distUnit">
-                <option value="km" {{ 'selected' if settings.get('distance_unit','km')=='km' }}>Kilometers</option>
-                <option value="mi" {{ 'selected' if settings.get('distance_unit','km')=='mi' }}>Miles</option>
-            </select>
-        </div>
-
-        <div style="margin:0; display:flex;">
-            <button class="btn btn-primary" style="height:38px; white-space:nowrap;" onclick="savePrefs()">Save</button>
-        </div>
     </div>
-</div>
 
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">Appearance</div>
-    </div>
-    <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;">
-        <div class="form-group" style="margin:0; flex:1; min-width:180px;">
+    <!-- Appearance -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Appearance</div>
+            <button class="btn btn-primary btn-sm" onclick="saveAppearance()">Apply Theme</button>
+        </div>
+        <div class="form-group" style="margin:0;">
             <label class="form-label">Theme</label>
             <select class="form-input" id="appTheme">
-                <option value="oled" {{ 'selected' if settings.get('theme','oled')=='oled' }}>OLED (Pitch Black)
-                </option>
-                <option value="dark" {{ 'selected' if settings.get('theme','oled')=='dark' }}>Dark (LCD Friendly)
-                </option>
-                <option value="white" {{ 'selected' if settings.get('theme','oled')=='white' }}>White (Light Mode)
-                </option>
+                <option value="oled" {{ 'selected' if settings.get('theme','oled')=='oled' }}>OLED (Pitch Black)</option>
+                <option value="dark" {{ 'selected' if settings.get('theme','oled')=='dark' }}>Dark (LCD Friendly)</option>
+                <option value="white" {{ 'selected' if settings.get('theme','oled')=='white' }}>White (Light Mode)</option>
             </select>
         </div>
-        <div style="margin:0; display:flex;">
-            <button class="btn btn-primary" style="height:38px; white-space:nowrap;" onclick="saveAppearance()">Apply
-                Theme</button>
-        </div>
     </div>
 </div>
 
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">Data Management</div>
-    </div>
-    <div class="flex flex-col gap-16">
-        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);">
+<!-- ─── Row 3: Health Connect + Data Management ─── -->
+<div class="settings-side-grid">
+
+    <!-- Health Connect -->
+    <div class="card" id="hc-webhook-section">
+        <div class="card-header">
+            <div class="card-title">Health Connect</div>
+            <button id="hcEnableBtn" class="btn btn-accent btn-sm" onclick="toggleHcWebhook()">Enable</button>
+        </div>
+        <div class="flex items-center gap-8" style="margin-bottom:4px;">
+            <span id="hcStatusDot" class="status-dot offline"></span>
             <div>
-                <div style="font-weight:500;">AI Cache</div>
-                <div class="label-caps">Clear cached AI recommendations</div>
+                <div id="hcStatusText" style="font-weight:500;">Not Connected</div>
+                <div class="label-caps" id="hcStatusSub">Enable Local HTTP Server in Android app</div>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="clearCache()">Clear Cache</button>
         </div>
-        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border);">
+        <div id="hcWebhookDetails" class="hidden" style="display:none; margin-top:16px;">
+            <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label">Phone IP Address (e.g., 192.168.0.97)</label>
+                <input type="text" class="form-input" id="hcPhoneIp" placeholder="192.168.0.x"
+                    style="font-family:monospace; font-size:0.8rem;">
+            </div>
+            <div class="flex gap-8 items-center" style="margin-bottom:12px;">
+                <button class="btn btn-primary btn-sm" onclick="saveHcSettings()">Save</button>
+                <button class="btn btn-secondary btn-sm" onclick="syncHcData()" id="hcSyncBtn">Sync Now</button>
+                <button class="btn btn-ghost btn-sm" onclick="clearHealthData()" style="color:var(--danger);">Clear Data</button>
+            </div>
+            <div class="label-caps" id="hcLastSync"></div>
+        </div>
+    </div>
+
+    <!-- Data Management -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Data Management</div>
+        </div>
+        <div class="flex flex-col">
+            <div class="flex justify-between items-center" style="padding:8px 0; border-bottom:1px solid var(--border);">
+                <div>
+                    <div style="font-weight:500;">AI Cache</div>
+                    <div class="label-caps">Clear cached AI recommendations</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="clearCache()">Clear Cache</button>
+            </div>
+            <div class="flex justify-between items-center" style="padding:8px 0; border-bottom:1px solid var(--border);">
+                <div>
+                    <div style="font-weight:500;">Sync History</div>
+                    <div class="label-caps" id="syncHistoryLabel">Loading...</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="toggleSyncHistory()">View History</button>
+            </div>
+            <div id="syncHistoryPanel" class="hidden" style="margin-top:4px;">
+                <div class="table-container page-fade-in">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Activities</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="syncHistoryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Row 4: Export Settings + Downloads ─── -->
+<div class="settings-side-grid">
+
+    <!-- Export Settings -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Export Settings</div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Date Presets</label>
+            <div class="period-btn-group">
+                <button id="preset-week" class="btn btn-ghost btn-sm" onclick="setDatePreset('week')">This Week</button>
+                <button id="preset-30days" class="btn btn-ghost btn-sm" onclick="setDatePreset('30days')">Last 30d</button>
+                <button id="preset-year" class="btn btn-ghost btn-sm" onclick="setDatePreset('year')">This Year</button>
+                <button id="preset-all" class="btn btn-ghost btn-sm" onclick="setDatePreset('all')">All Time</button>
+            </div>
+        </div>
+        <div class="grid grid-2 mb-16">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-input" style="width:100%;" id="exportStart">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-input" style="width:100%;" id="exportEnd">
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Format</label>
+            <select class="form-input" style="width:100%;" id="exportFormat">
+                <option value="csv">CSV (Spreadsheet)</option>
+                <option value="json">JSON (Developer)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Downloads -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Downloads</div>
+        </div>
+        <div class="flex flex-col">
+            <div class="flex justify-between items-center" style="padding:8px 0; border-bottom:1px solid var(--border);">
+                <div>
+                    <div style="font-weight:500;">Activities</div>
+                    <div class="label-caps">.CSV / JSON</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="exportData('activities')">
+                    <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Download
+                </button>
+            </div>
+            <div class="flex justify-between items-center" style="padding:8px 0; border-bottom:1px solid var(--border);">
+                <div>
+                    <div style="font-weight:500;">Lifting Logs</div>
+                    <div class="label-caps">.CSV / JSON</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="exportData('lifting')">
+                    <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Download
+                </button>
+            </div>
+            <div class="flex justify-between items-center" style="padding:8px 0; border-bottom:1px solid var(--border);">
+                <div>
+                    <div style="font-weight:500;">Nutrition</div>
+                    <div class="label-caps">.CSV</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="exportData('nutrition')">
+                    <svg width="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Row 5: Disclaimer + (Danger Zone stacked above About) ─── -->
+<div class="settings-side-grid">
+
+    <!-- Disclaimer -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Disclaimer</div>
+        </div>
+        <div style="font-size:0.8125rem; line-height:1.6; color:var(--text-secondary);">
+            The creator of HealthTerminal is not responsible for any training, nutrition, or health advice generated by the
+            AI. All recommendations are produced by a third-party language model and should not be treated as professional
+            medical, dietary, or fitness guidance. Always consult a qualified healthcare professional before making changes
+            to your training or nutrition. Use at your own risk.
+            <br><br>
+            The AI's nutritional guidance is based on opinions regarding red meat consumption, seed oil avoidance, and
+            animal-based nutrition that are considered valid by the developer and consulted professionals but may not align
+            with official government dietary guidelines. This data is considered critical by governments worldwide and does
+            not comply with common state-endorsed nutritional recommendations and propaganda. The user is encouraged to do
+            their own research and form their own conclusions.
+        </div>
+    </div>
+
+    <!-- Right column: Danger Zone stacked above About -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+
+        <div class="card danger-zone">
+            <div class="card-header">
+                <div class="card-title" style="color:var(--danger);">Danger Zone</div>
+                <button class="btn btn-danger btn-sm" onclick="confirmReset()">Reset Data</button>
+            </div>
             <div>
-                <div style="font-weight:500;">Sync History</div>
-                <div class="label-caps" id="syncHistoryLabel">Loading...</div>
-            </div>
-            <button class="btn btn-ghost btn-sm" onclick="toggleSyncHistory()">View History</button>
-        </div>
-        <div id="syncHistoryPanel" class="hidden" style="margin-top:-8px;">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Activities</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="syncHistoryTable"></tbody>
-                </table>
+                <div style="font-weight:500;">Reset All Data</div>
+                <div class="label-caps">Delete all activities, sync data, and AI cache. Settings are preserved.</div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="card mb-24" style="border-color:var(--border);">
-    <div class="card-header">
-        <div class="card-title">Disclaimer</div>
-    </div>
-    <div style="font-size:0.8125rem;line-height:1.6;color:var(--text-secondary);">
-        The creator of HealthTerminal is not responsible for any training, nutrition, or health advice generated by the
-        AI. All recommendations are produced by a third-party language model and should not be treated as professional
-        medical, dietary, or fitness guidance. Always consult a qualified healthcare professional before making changes
-        to your training or nutrition. Use at your own risk.
-        <br><br>
-        The AI's nutritional guidance is based on opinions regarding red meat consumption, seed oil avoidance, and
-        animal-based nutrition that are considered valid by the developer and consulted professionals but may not align
-        with official government dietary guidelines. This data is considered critical by governments worldwide and does
-        not comply with common state-endorsed nutritional recommendations and propaganda. The user is encouraged to do
-        their own research and form their own conclusions.
-    </div>
-</div>
-
-<div class="card danger-zone mb-24">
-    <div class="card-header">
-        <div class="card-title" style="color:var(--danger);">Danger Zone</div>
-    </div>
-    <div class="flex justify-between items-center">
-        <div>
-            <div style="font-weight:500;">Reset All Data</div>
-            <div class="label-caps">Delete all activities, sync data, and AI cache. Settings are preserved.</div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">About</div>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+                <a href="https://javon-web.de" target="_blank" rel="noopener" class="flex items-center gap-8"
+                    style="color:var(--text-primary); text-decoration:none; padding:8px 0; border-bottom:1px solid var(--border);">
+                    <svg width="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    javon-web.de
+                    <svg width="14" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto;">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+                    </svg>
+                </a>
+                <a href="https://github.com/jqvxz" target="_blank" rel="noopener" class="flex items-center gap-8"
+                    style="color:var(--text-primary); text-decoration:none; padding:8px 0; border-bottom:1px solid var(--border);">
+                    <svg width="18" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                    github.com/jqvxz
+                    <svg width="14" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto;">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+                    </svg>
+                </a>
+            </div>
+            <div class="label-caps mt-16" style="color:var(--text-muted);">HealthTerminal V1.2 · Built with Flask + Chart.js</div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="confirmReset()">Reset Data</button>
-    </div>
-</div>
-
-<div class="card mb-24">
-    <div class="card-header">
-        <div class="card-title">About</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-        <a href="https://javon-web.de" target="_blank" rel="noopener" class="flex items-center gap-8"
-            style="color:var(--text-primary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border);">
-            <svg width="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <path
-                    d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
-            javon-web.de
-            <svg width="14" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24"
-                style="margin-left:auto;">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
-            </svg>
-        </a>
-        <a href="https://github.com/jqvxz" target="_blank" rel="noopener" class="flex items-center gap-8"
-            style="color:var(--text-primary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border);">
-            <svg width="18" fill="currentColor" viewBox="0 0 24 24">
-                <path
-                    d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
-            </svg>
-            github.com/jqvxz
-            <svg width="14" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24"
-                style="margin-left:auto;">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
-            </svg>
-        </a>
-    </div>
-    <div class="label-caps mt-16" style="color:var(--text-muted);">HealthTerminal V1.2 · Built with Flask + Chart.js
     </div>
 </div>
 {% endblock %}
@@ -254,16 +389,56 @@
 <script>
     document.addEventListener('DOMContentLoaded', loadSyncHistoryLabel);
 
+    // ─── Export ───────────────────────────────────────────────
+    function setDatePreset(preset) {
+        ['week', '30days', 'year', 'all'].forEach(p => {
+            const btn = document.getElementById('preset-' + p);
+            if (btn) btn.classList.toggle('active', p === preset);
+        });
+        const startInput = document.getElementById('exportStart');
+        const endInput   = document.getElementById('exportEnd');
+        const now = new Date();
+        endInput.value = now.toISOString().split('T')[0];
+        if (preset === 'week') {
+            const past = new Date(now); past.setDate(past.getDate() - 7);
+            startInput.value = past.toISOString().split('T')[0];
+        } else if (preset === '30days') {
+            const past = new Date(now); past.setDate(past.getDate() - 30);
+            startInput.value = past.toISOString().split('T')[0];
+        } else if (preset === 'year') {
+            startInput.value = `${now.getFullYear()}-01-01`;
+        } else if (preset === 'all') {
+            startInput.value = '';
+            endInput.value   = '';
+        }
+    }
+
+    function getExportParams() {
+        const format = document.getElementById('exportFormat').value;
+        const start  = document.getElementById('exportStart').value;
+        const end    = document.getElementById('exportEnd').value;
+        const params = [];
+        if (start) params.push(`start_date=${start}`);
+        if (end)   params.push(`end_date=${end}`);
+        return { format, query: params.length ? '?' + params.join('&') : '' };
+    }
+
+    function exportData(type) {
+        const { format, query } = getExportParams();
+        let endpoint;
+        if (format === 'json' && type !== 'nutrition') {
+            endpoint = `/api/export/json${query}`;
+        } else {
+            endpoint = `/api/export/${type}/csv${query}`;
+        }
+        window.location.href = endpoint;
+        showToast(`Downloading ${type} ${format.toUpperCase()} export...`, 'success');
+    }
+
     async function saveApiKey() {
         const key = document.getElementById('apiKeyInput').value;
         await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ openrouter_api_key: key }) });
         showToast('API key saved', 'success');
-    }
-
-    async function saveNinjaApiKey() {
-        const key = document.getElementById('ninjaApiKeyInput').value;
-        await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apininjas_api_key: key }) });
-        showToast('API Ninjas key saved', 'success');
     }
 
     async function validateKey() {
@@ -296,60 +471,9 @@
             const res = await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
             const resData = await res.json();
             showToast('Preferences saved', 'success');
-            if (resData.bmi_exceeded) {
-                showBmiMotivationImage();
-            }
         } catch (e) {
             showToast('Error saving preferences', 'error');
         }
-    }
-
-    function showBmiMotivationImage() {
-        const overlay = document.createElement('div');
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = '100vh';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
-        overlay.style.zIndex = '999999';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.cursor = 'pointer';
-        overlay.style.opacity = '0';
-        overlay.style.transition = 'opacity 0.4s ease-in-out';
-
-        const img = document.createElement('img');
-        img.src = '/media/weight_motivation.png';
-        img.style.maxWidth = '90vw';
-        img.style.maxHeight = '90vh';
-        img.style.objectFit = 'contain';
-        img.style.border = 'none';
-        img.style.background = 'transparent';
-        img.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        img.style.transform = 'scale(0.7)';
-
-        overlay.appendChild(img);
-        document.body.appendChild(overlay);
-
-        setTimeout(() => {
-            overlay.style.opacity = '1';
-            img.style.transform = 'scale(1)';
-        }, 50);
-
-        const dismiss = () => {
-            overlay.style.opacity = '0';
-            img.style.transform = 'scale(0.7)';
-            setTimeout(() => {
-                if (overlay.parentNode) {
-                    overlay.parentNode.removeChild(overlay);
-                }
-            }, 400);
-        };
-
-        overlay.onclick = dismiss;
-        setTimeout(dismiss, 5000);
     }
 
     async function saveAppearance() {
@@ -399,6 +523,132 @@
             document.getElementById('syncHistoryTable').innerHTML = history.map(h =>
                 `<tr><td class="td-muted">${timeAgo(h.created_at)}</td><td class="data-mono">${h.activities_synced}</td><td><span class="badge ${h.status === 'success' ? 'badge-accent' : 'badge-danger'}">${h.status}</span></td></tr>`
             ).join('') || '<tr><td colspan="3"><div class="empty-state"><p>No sync history</p></div></td></tr>';
+        }
+    }
+
+    // ─── HC Webhook (Local HTTP Server) ──────────────────────
+    let _hcEnabled = false;
+
+    document.addEventListener('DOMContentLoaded', loadHcStatus);
+
+    async function loadHcStatus() {
+        try {
+            const res = await fetch('/api/health-connect/status');
+            const data = await res.json();
+            _hcEnabled = data.enabled;
+            updateHcUI(data);
+        } catch (e) { }
+    }
+
+    function updateHcUI(data) {
+        const dot = document.getElementById('hcStatusDot');
+        const text = document.getElementById('hcStatusText');
+        const sub = document.getElementById('hcStatusSub');
+        const btn = document.getElementById('hcEnableBtn');
+        const details = document.getElementById('hcWebhookDetails');
+        const ipInput = document.getElementById('hcPhoneIp');
+        const lastSync = document.getElementById('hcLastSync');
+
+        if (data.enabled) {
+            dot.className = 'status-dot online';
+            text.textContent = 'Enabled';
+            sub.textContent = 'Pulling from Android Local HTTP Server';
+            btn.textContent = 'Disable';
+            btn.className = 'btn btn-secondary btn-sm';
+            details.style.display = 'block';
+            details.classList.remove('hidden');
+            ipInput.value = data.hc_phone_ip || '';
+            if (data.last_sync) {
+                lastSync.textContent = 'Last sync: ' + timeAgo(data.last_sync);
+            } else {
+                lastSync.textContent = 'No data synced yet';
+            }
+        } else {
+            dot.className = 'status-dot offline';
+            text.textContent = 'Not Connected';
+            sub.textContent = 'Enable Local HTTP Server in Android app';
+            btn.textContent = 'Enable';
+            btn.className = 'btn btn-accent btn-sm';
+            details.style.display = 'none';
+        }
+    }
+
+    async function toggleHcWebhook() {
+        try {
+            if (_hcEnabled) {
+                if (!confirm('Disable Health Connect integration?')) return;
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hc_webhook_enabled: '0' })
+                });
+                _hcEnabled = false;
+                updateHcUI({ enabled: false });
+                showToast('Health Connect integration disabled', 'success');
+            } else {
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hc_webhook_enabled: '1' })
+                });
+                _hcEnabled = true;
+                // Reload status to reflect newly enabled state
+                loadHcStatus();
+                showToast('Enabled! Please configure IP and Token.', 'success');
+            }
+        } catch (e) {
+            showToast('Error toggling Health Connect', 'error');
+        }
+    }
+
+    async function saveHcSettings() {
+        const ip = document.getElementById('hcPhoneIp').value.trim();
+        try {
+            await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hc_phone_ip: ip })
+            });
+            showToast('Settings saved', 'success');
+        } catch (e) {
+            showToast('Error saving HC settings', 'error');
+        }
+    }
+
+    async function syncHcData() {
+        const btn = document.getElementById('hcSyncBtn');
+        const origText = btn.textContent;
+        btn.textContent = 'Syncing...';
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/health-connect/sync', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`Sync successful! ${data.records_saved} records saved.`, 'success');
+                loadHcStatus();
+            } else {
+                showToast(data.error || 'Sync failed', 'error');
+            }
+        } catch (e) {
+            showToast('Network error during sync', 'error');
+        } finally {
+            btn.textContent = origText;
+            btn.disabled = false;
+        }
+    }
+
+    function toggleTokenVisibility() {
+        const input = document.getElementById('hcLocalToken');
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    async function clearHealthData() {
+        if (!confirm('Clear all health data? This cannot be undone.')) return;
+        try {
+            await fetch('/api/health-connect/clear', { method: 'POST' });
+            showToast('Health data cleared', 'success');
+        } catch (e) {
+            showToast('Error clearing data', 'error');
         }
     }
 </script>
