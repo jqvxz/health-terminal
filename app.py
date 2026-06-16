@@ -1,5 +1,5 @@
 """
-HealthTerminal V1 — Flask Application Factory
+HealthTerminal V2 — Flask Application Factory
 Main entry point for the web application.
 """
 
