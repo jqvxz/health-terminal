@@ -1,6 +1,6 @@
 ## HealthTerminal — V2
 
-A no-nonsense fitness dashboard built for athletes who care about raw data, not bloat. HealthTerminal pulls your training and nutrition data into one clean, local interface with no subscriptions, no cloud, no distractions.
+A fitness dashboard built for athletes who care about raw data, not bloat. HealthTerminal pulls your training and nutrition data into one clean, local interface with no subscriptions, no cloud, no distractions.
 
 ## What it does
 
