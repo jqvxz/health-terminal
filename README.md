@@ -1,3 +1,6 @@
+# The application will stop working for free users as soon as Strava removes acces for unpaid accounts to use their API
+# I am working on a solution
+
 ## HealthTerminal — V2
 
 A fitness dashboard built for athletes who care about raw data, not bloat. HealthTerminal pulls your training and nutrition data into one clean, local interface with no subscriptions, no cloud, no distractions.
