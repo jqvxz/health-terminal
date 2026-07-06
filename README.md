@@ -1,5 +1,4 @@
 # The application will stop working for free users as soon as Strava removes acces for unpaid accounts to use their API
-# I am working on a solution
 
 ## HealthTerminal — V2
 
