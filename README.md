@@ -1,5 +1,7 @@
 # The application will stop working for free users as soon as Strava removes acces for unpaid accounts to use their API
 
+I will create an android app that will replace the Strava API as well as the HC Webhook. Everything will be done through Android Health Connect which will be the most reliable option
+
 ## HealthTerminal — V2
 
 A fitness dashboard built for athletes who care about raw data, not bloat. HealthTerminal pulls your training and nutrition data into one clean, local interface with no subscriptions, no cloud, no distractions.
