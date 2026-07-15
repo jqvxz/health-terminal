@@ -1,5 +1,7 @@
 ## HealthTerminal — V2
 
+In the next version Strava will no longer be supported. All data will be gained through a seperate android application called [SimpleHC](https://github.com/jqvxz/simple-hc).
+
 A fitness dashboard built for athletes who care about raw data, not bloat. HealthTerminal pulls your training and nutrition data into one clean, local interface with no subscriptions, no cloud, no distractions.
 
 ## What it does
