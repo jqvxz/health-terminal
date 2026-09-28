@@ -1,48 +1,77 @@
-## HealthTerminal — V2
+## HealthTerminal
 
-In the next version Strava will no longer be supported. All data will be gained through a seperate android application called [SimpleHC](https://github.com/jqvxz/simple-hc).
+A simple fitness dashboard for athletes who want their data in one place.
 
-A fitness dashboard built for athletes who care about raw data, not bloat. HealthTerminal pulls your training and nutrition data into one clean, local interface with no subscriptions, no cloud, no distractions.
+HealthTerminal combines training, health, and nutrition data into a clean local interface without subscriptions or unnecessary bloat.
 
-## What it does
+Data is collected through the separate Android app [SimpleHC](https://github.com/jqvxz/simple-hc), which connects to Android Health Connect.
 
-- **Dashboard** — High-level view of your running distance, lifting sessions, and total volume in a clean brutalist grid.
-- **Strava Integration** — OAuth 2.0 connection that automatically pulls your recent runs and rides.
-- **Hevy Analysis** — Tracks progressive overload, max volume per session, and muscle group distribution from your lifting data.
-- **Goal Tracking** — Set measurable targets (5k time, squat PR, etc.) and watch completion percentages update dynamically.
-- **Activity Calendar** — Visual overview of training consistency, streaks, and frequency across all disciplines.
-- **Nutrition Logging** — Natural-language food entry (e.g. `2 eggs, 100g white rice`) powered by the Open Food Facts API. Macros are aggregated and shown on the calendar.
-- **Readiness Score** — A daily algorithmic score based on sleep quality, resting heart rate, training load, and step count.
-- **Android Health Connect** — Sync sleep, steps, heart rate, VO2 max, and body temperature from your phone via a local webhook.
-- **AI Insights** — On-demand metabolic scan and training suggestions via OpenRouter (Nemotron). Always optional, always local-context-aware.
-- **Export** — Download PNG summaries or Markdown reports of your stats directly from the browser.
-- **Theming** — OLED Dark and White mode, fully responsive.
+## Features
 
-## Getting started
+- Training and activity tracking
+- Running and lifting statistics
+- Goals and progress tracking
+- Activity calendar
+- Nutrition logging
+- Health Connect data
+- Readiness score
+- Optional AI insights
+- PNG and Markdown exports
+- OLED Dark and White mode
 
-**Prerequisites:** Python 3.8+, a Strava API account, an OpenRouter API key, and Hevy connected to Strava.
+## Setup
+
+### Requirements
+
+- Python 3.8+
+- Android device with Health Connect
+- [SimpleHC](https://github.com/jqvxz/simple-hc)
+- OpenRouter API key for AI features
+
+### Installation
 
 ```bash
 git clone https://github.com/jqvxz/health-terminal.git
 cd health-terminal
-python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
+
+python -m venv venv
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and fill in your credentials:
+On Windows:
+
+```powershell
+venv\Scripts\activate
+```
+
+Create `.env` from `.env.example` and configure it:
 
 ```env
-STRAVA_CLIENT_ID=your_client_id
-STRAVA_CLIENT_SECRET=your_client_secret
-OPENROUTER_API_KEY=your_openrouter_key
-FLASK_SECRET_KEY=your_secure_random_string
+OPENROUTER_API_KEY=your_api_key
+FLASK_SECRET_KEY=your_secret_key
 BASE_URL=http://localhost:5000
 ```
 
-Then run:
+Start the application:
 
 ```bash
 python app.py
 ```
 
-Open `http://localhost:5000`. The SQLite database initializes automatically on first launch.
+Open `http://localhost:5000`.
+
+## Tech Stack
+
+- Python
+- Flask
+- SQLite
+- Android Health Connect
+- SimpleHC
+- OpenRouter
+- Open Food Facts
+
+## License
+
+MIT
